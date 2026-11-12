@@ -8,7 +8,7 @@ open and look at.
 - [x] M0 Setup: docs, reference fixture, teaching content, repository
 - [x] M1 Core model
 - [x] M2 First light: engine, P–v diagram, transport
-- [ ] M3 Interactivity: parameters, results, T–s, dragging, state table
+- [x] M3 Interactivity: parameters, results, T–s, dragging, state table
 - [ ] M4 Guided step-through and equations
 - [ ] M5 Energy bookkeeping, area shading, intake and exhaust strokes
 - [ ] M6 Efficiency curves and compare mode
@@ -360,6 +360,21 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M3 (interactivity).** Checked at 1366 × 768 in the browser: every item of the list, numbers
+  exact. New core modules, all tested: `pick.js` (dragging, hover), `tables.js` (state table,
+  results, q/w as magnitudes with in/out), `params.js` (number-box parsing); log scale and ticks in
+  `scale.js`; `pvLog` bounds and `phaseSamples` in `model.js`.
+- Readings chosen: log axes use 1.25 headroom, not 1.05 (1.05 is ~2 % of a log axis and put the dual
+  cycle's top against the frame). "Reset" restores the current cycle's parameters and T₁, P₁, k.
+  Number boxes apply a value only when complete and in range; Enter or leaving the box clamps.
+- The 250 ms axis rescale runs its own short `requestAnimationFrame` inside `diagramView.js`; the
+  playback clock in `main.js` is still the only loop that moves the playhead. Ticks during the
+  rescale come from the target bounds, so labels never show odd values.
+- Piston strip and its drop-line are drawn for the first cycle only; compare mode (M6) must decide
+  what the strip shows for two cycles. With the strip, the P–v plot loses 44 px of height.
+- Rough edge: on linear P–v the P badge still covers state label 2 when the dot is at the top of a
+  Diesel or dual cycle (noted in M2); the tooltip hit radius on state markers is 10 px.
 
 - **M2 (first light).** Checked at 1366 × 768: all items of the list, readouts exact. Stage is 62vh
   (SPEC says about half); header + stage + transport end at y ≈ 600. Engine text is laid out in

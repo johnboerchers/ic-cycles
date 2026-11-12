@@ -46,7 +46,11 @@ test("samples: one polyline per drawn process, from its first state to its last"
 });
 
 test("axis bounds: nice numbers above 1.05 x the maxima, P–v and T from 0", () => {
-  assert.deepEqual(model("otto").bounds, { pv: { v: [0, 1], P: [0, 6000] }, ts: { s: [-0.04, 0.8], T: [0, 2000] } });
+  assert.deepEqual(model("otto").bounds, {
+    pv: { v: [0, 1], P: [0, 6000] },
+    pvLog: { v: [0.08, 1.2], P: [80, 8000] },
+    ts: { s: [-0.04, 0.8], T: [0, 2000] },
+  });
   assert.deepEqual(model("diesel").bounds.pv, { v: [0, 1], P: [0, 8000] });
   assert.deepEqual(model("dual").bounds.pv, { v: [0, 1], P: [0, 8000] });
   assert.deepEqual(model("dual").bounds.ts.T, [0, 2500]); // T3 = 2046.2

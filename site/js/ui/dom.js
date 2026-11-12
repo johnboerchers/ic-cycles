@@ -56,3 +56,27 @@ export function noMouseFocus(node) {
   node.addEventListener("mousedown", (e) => e.preventDefault());
   return node;
 }
+
+// A switch: a checkbox drawn as a sliding toggle, with its label. After a pointer toggle the
+// checkbox gives up focus again, so Space keeps meaning play/pause; keyboard users keep focus.
+export function makeSwitch(parent, label, onChange, extraClass = "") {
+  const sw = noMouseFocus(htmlEl("label", { class: `switch ${extraClass}`.trim() }, parent));
+  const box = htmlEl("input", { type: "checkbox", role: "switch" }, sw);
+  htmlEl("span", { class: "switch-track", "aria-hidden": "true" }, sw);
+  sw.append(label);
+  let pointerToggle = false;
+  sw.addEventListener("pointerdown", () => (pointerToggle = true));
+  box.addEventListener("change", () => {
+    onChange(box.checked);
+    if (pointerToggle) box.blur();
+    pointerToggle = false;
+  });
+  return box;
+}
+
+// Appends HTML for a symbol in italics with an optional subscript: q<sub>in</sub>.
+export function symbolHtml(parent, symbol, sub) {
+  htmlEl("var", { text: symbol }, parent);
+  if (sub) htmlEl("sub", { text: sub }, parent);
+  return parent;
+}

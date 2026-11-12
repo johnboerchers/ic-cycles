@@ -9,7 +9,7 @@ import { makeGas } from "./gas.js";
 import { ratiosFor, solveCycle } from "./cycle.js";
 import { sampleProcess } from "./paths.js";
 import { buildTimeline, frameAt, phaseOfSlot } from "./timeline.js";
-import { niceBound } from "./scale.js";
+import { niceBound, niceUpper, niceLower } from "./scale.js";
 import { CONTENT } from "../content/content.js";
 
 // Process role of each timeline slot (PHYSICS.md section 6).
@@ -29,6 +29,9 @@ const STROKE_PROCESS = { X: "1-0", I: "0-1" };
 const S_LEAD = 0.05; // the T-s entropy axis starts this fraction of its span left of 0
 const MIN_S_SPAN = 0.05; // kJ/kg·K, entropy span when a cycle adds no heat at all
 const EPS = 1e-9;
+// Log axes get more room than linear ones: 1.05 is only 2 % of a log axis, which would put the
+// top of the cycle and the states at TDC against the axes.
+const LOG_HEADROOM = 1.25;
 
 // A cycle of one type from its stored (native) parameters and the shared inlet state and gas.
 export function solveCycleFor(type, params, shared) {
@@ -51,10 +54,16 @@ function cycleEntry(id, label, solution, options) {
 export function axisBounds(cycles) {
   const states = cycles.flatMap((c) => Object.values(c.solution.states));
   const max = (key) => Math.max(...states.map((st) => st[key]));
+  const min = (key) => Math.min(...states.map((st) => st[key]));
   const sHi = niceBound(Math.max(max("s"), MIN_S_SPAN));
   const sLo = -Number((S_LEAD * sHi).toPrecision(12)); // -0.04, not -0.04000000000000001
   return {
     pv: { v: [0, niceBound(max("v"))], P: [0, niceBound(max("P"))] },
+    // Log–log P–v (SPEC section 6): nice numbers below the minima and above the maxima.
+    pvLog: {
+      v: [niceLower(min("v") / LOG_HEADROOM), niceUpper(max("v") * LOG_HEADROOM)],
+      P: [niceLower(min("P") / LOG_HEADROOM), niceUpper(max("P") * LOG_HEADROOM)],
+    },
     ts: { s: [sLo, sHi], T: [0, niceBound(max("T"))] },
   };
 }
@@ -93,6 +102,17 @@ export function timelineSegments(model) {
 }
 
 // ------------------------------------------------------------------------------ playback
+
+// The cycle sampled at n evenly spaced phases, for dragging the state point (SPEC section 6):
+// [{ u, state, vCyl }] for u = 0, 1/n, ... (n - 1)/n.
+export function phaseSamples(cycle, n = 600) {
+  const out = [];
+  for (let j = 0; j < n; j++) {
+    const f = frameAt(cycle.solution, cycle.timeline, j / n);
+    out.push({ u: j / n, state: f.state, vCyl: f.vCyl });
+  }
+  return out;
+}
 
 // The playhead is stored as slot and tau; the phase comes from the current timeline. In
 // compare mode the timelines share their slot boundaries, so the first one serves for all.

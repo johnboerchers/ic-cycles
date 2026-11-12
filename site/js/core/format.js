@@ -78,3 +78,8 @@ export function formatTicks(values) {
     return x.toFixed(d).replace("-", MINUS);
   });
 }
+
+// Labels for log-axis ticks (1, 2, 5 x 10^n): each label gets the decimals its own value needs.
+export function formatLogTicks(values) {
+  return values.map((x) => (exists(x) ? x.toFixed(decimalsFor(x)) : MISSING));
+}

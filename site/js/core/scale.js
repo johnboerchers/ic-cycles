@@ -119,3 +119,45 @@ export function colorRamp(stops) {
     return toHex(c0.map((c, j) => c + t * (c1[j] - c)));
   };
 }
+
+// The largest value of the series (times a power of ten) that is <= x, for x > 0.
+export function niceLower(x) {
+  if (!(x > 0) || !Number.isFinite(x)) throw new RangeError(`niceLower needs x > 0, got ${x}`);
+  let n = Math.floor(Math.log10(x));
+  let m = x / 10 ** n;
+  if (m < 1) { n -= 1; m *= 10; }
+  if (m >= 10) { n += 1; m /= 10; }
+  let best = 1;
+  for (const s of NICE_SERIES) if (s <= m * (1 + 1e-12)) best = s;
+  return clean(best * 10 ** n);
+}
+
+// Logarithmic map from a domain [d0, d1] (both > 0) to a range [r0, r1], with .invert.
+export function logScale([d0, d1], [r0, r1]) {
+  const l0 = Math.log(d0);
+  const k = (r1 - r0) / (Math.log(d1) - l0);
+  const f = (x) => r0 + (Math.log(x) - l0) * k;
+  f.invert = (y) => Math.exp(l0 + (y - r0) / k);
+  f.domain = [d0, d1];
+  f.range = [r0, r1];
+  return f;
+}
+
+// Ticks for a log axis: 1, 2, 5 x 10^n inside [lo, hi]. A span of many decades keeps only the
+// powers of ten; a span under one decade adds the rest of the nice series.
+export function logTicks(lo, hi) {
+  const pick = (mantissas) => {
+    const out = [];
+    for (let n = Math.floor(Math.log10(lo)) - 1; n <= Math.ceil(Math.log10(hi)); n++) {
+      for (const m of mantissas) {
+        const t = clean(m * 10 ** n);
+        if (t >= lo * (1 - 1e-9) && t <= hi * (1 + 1e-9)) out.push(t);
+      }
+    }
+    return out;
+  };
+  let out = pick([1, 2, 5]);
+  if (out.length > 8) out = pick([1]);
+  if (out.length < 3) out = pick([1, 1.5, 2, 3, 4, 5, 6, 8]);
+  return out;
+}

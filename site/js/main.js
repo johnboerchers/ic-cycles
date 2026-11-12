@@ -3,7 +3,7 @@
 // tick(frames, state) on every animation frame and every scrub.
 
 import { createStore } from "./state/store.js";
-import { defaultState, CYCLES, TIMING } from "./state/defaults.js";
+import { defaultState, CYCLES, TIMING, PARAMS, SHARED } from "./state/defaults.js";
 import {
   buildModel, phaseOf, framesAt, nextBoundary, previousStart, advancePhase,
 } from "./core/model.js";
@@ -11,6 +11,9 @@ import { createHeader } from "./ui/header.js";
 import { createEngineView } from "./ui/engineView.js";
 import { createDiagramView } from "./ui/diagramView.js";
 import { createTransport } from "./ui/transport.js";
+import { createParamsPanel } from "./ui/paramsPanel.js";
+import { createResultsPanel } from "./ui/resultsPanel.js";
+import { createStateTable } from "./ui/stateTable.js";
 
 const store = createStore(defaultState());
 let model = buildModel(store.get());
@@ -56,7 +59,27 @@ const actions = {
   selectCycle(cycle) {
     if (cycle !== store.get().cycle) store.set({ cycle });
   },
-  // Scrubbing pauses playback and moves everything to the phase under the pointer.
+  // A parameter of the current cycle ("params") or a shared one ("shared": T1, P1, k). The
+  // playhead keeps its slot and tau, so a paused piston stays where it is (SPEC section 8).
+  setParam(group, key, value) {
+    const st = store.get();
+    if (group === "shared") {
+      if (st.shared[key] !== value) store.set({ shared: { ...st.shared, [key]: value } });
+      return;
+    }
+    const own = st.params[st.cycle];
+    if (own[key] !== value) store.set({ params: { ...st.params, [st.cycle]: { ...own, [key]: value } } });
+  },
+  // Reset restores every value in the panel: the current cycle's parameters and T1, P1, k.
+  resetParams() {
+    const st = store.get();
+    const values = (group) => Object.fromEntries(Object.entries(group).map(([k, d]) => [k, d.value]));
+    store.set({ shared: values(SHARED), params: { ...st.params, [st.cycle]: values(PARAMS[st.cycle]) } });
+  },
+  setOption(key, value) {
+    store.merge("options", { [key]: value });
+  },
+  // Scrubbing (and dragging the state point) pauses playback and moves everything to the phase under the pointer.
   scrub(u) {
     pendingStops = 0;
     setPhase(u, { playing: false });
@@ -66,8 +89,12 @@ const actions = {
 const views = [
   createHeader(document.getElementById("cycle-select"), actions),
   createEngineView(document.getElementById("engine-panel")),
-  createDiagramView(document.getElementById("pv-panel"), { kind: "pv" }),
+  createDiagramView(document.getElementById("pv-panel"), { kind: "pv", actions }),
+  createDiagramView(document.getElementById("ts-panel"), { kind: "ts", actions }),
   createTransport(document.getElementById("transport"), actions),
+  createParamsPanel(document.getElementById("params-panel"), actions),
+  createResultsPanel(document.getElementById("results-panel")),
+  createStateTable(document.getElementById("states-panel")),
 ];
 
 function modelInputsChanged(state, prev) {
