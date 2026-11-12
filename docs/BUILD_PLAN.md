@@ -257,6 +257,10 @@ engine.
 
 **Build**
 
+- First, a correction from the review of M4: the `\val` formatting rule in PHYSICS.md section 11
+  changed (only values the user typed in are trimmed). Update `core/values.js` and its tests to
+  match, and confirm in the browser that the Otto 3→4 card shows `731.0`, the Otto summary shows
+  `0.8610` for v₁, and the dual summary shows `65.0 %`.
 - `ui/energyView.js` per SPEC section 12.
 - Area shading on both diagrams and its switch.
 - The strokes switch: slots X and I in the timeline, valves opening in the engine view, the P₁

@@ -347,6 +347,9 @@ One module, `core/format.js`, formats every number shown. No `toFixed` calls sca
 
 Use a true minus sign (U+2212) for negatives, and `—` for values that do not exist.
 
-For `\val{…}` substitution in equations, format as above and then trim trailing zeros and a
-trailing decimal point, so inputs read as typed: `(300)(8)^{0.4}`, not `(300.0)(8)^{0.4}`.
-`eta` becomes a TeX-safe percentage such as `56.5\%`.
+For `\val{…}` substitution in equations, format as above. Then, **only for values the user
+typed in**, trim trailing zeros and a trailing decimal point so they read as typed:
+`(300)(8)^{0.4}`, not `(300.0)(8)^{0.4}`. Those values are `T1`, `P1`, `k`, `km1`, `R` and `r`
+for every cycle, plus `qin` for Otto, `rc` for Diesel and dual, and `rp` for dual. Every
+computed value keeps its full format, so a card agrees with the tables and tiles beside it:
+`731.0`, `0.8610`, `65.0\%`. `eta` is a TeX-safe percentage such as `56.5\%`.
