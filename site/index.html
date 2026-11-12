@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Engine cycles</title>
     <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="css/tokens.css" />
     <link rel="stylesheet" href="css/app.css" />
     <script type="module" src="js/main.js"></script>
@@ -17,6 +18,10 @@
         <button type="button" data-cycle="diesel" aria-pressed="false" title="Diesel cycle (2)">Diesel</button>
         <button type="button" data-cycle="dual" aria-pressed="false" title="Dual cycle (3)">Dual</button>
       </div>
+      <nav class="header-links" aria-label="Reference">
+        <button type="button" class="link-btn" id="symbols-btn" aria-haspopup="dialog">Symbols</button>
+        <button type="button" class="link-btn" id="model-btn" aria-haspopup="dialog">Model</button>
+      </nav>
     </header>
 
     <main class="app">
@@ -35,7 +40,7 @@
       <section class="panel transport" id="transport" aria-label="Playback"></section>
 
       <section class="lower" aria-label="Details">
-        <div class="panel placeholder" id="card-panel"><h2 class="panel-title">Process</h2></div>
+        <div class="panel lower-panel" id="card-panel"><h2 class="panel-title">Process</h2></div>
         <div class="panel lower-panel" id="params-panel"><h2 class="panel-title">Parameters</h2></div>
         <div class="panel lower-panel" id="results-panel"><h2 class="panel-title">Results</h2></div>
         <div class="panel lower-panel" id="states-panel"><h2 class="panel-title">States</h2></div>

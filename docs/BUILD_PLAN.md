@@ -9,7 +9,7 @@ open and look at.
 - [x] M1 Core model
 - [x] M2 First light: engine, P–v diagram, transport
 - [x] M3 Interactivity: parameters, results, T–s, dragging, state table
-- [ ] M4 Guided step-through and equations
+- [x] M4 Guided step-through and equations
 - [ ] M5 Energy bookkeeping, area shading, intake and exhaust strokes
 - [ ] M6 Efficiency curves and compare mode
 - [ ] M7 Polish and publish
@@ -363,6 +363,18 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M4 (guided step-through).** KaTeX 0.16.47 vendored; every string in `content.js` rendered with
+  `throwOnError` and `strict: "error"` on the first try, so no TeX was changed. Checked at 1366 × 768:
+  every item of the list, all requests local, no console messages, no equation overflows any card.
+- New core modules, tested: `values.js` (the `\val` map) and `steps.js` (card steps, the card
+  following the playhead, where Back puts it). The card is `state.card`; `setPhase` in `main.js`
+  updates it while the playhead is inside a process and leaves it alone at a state.
+- Readings chosen: card Next/Back/dots work the same in free play and the tour; Next is disabled on
+  the summary; a card that disappears (x-3 when r_c = 1) falls back to the process ending at the
+  playhead. Stroke cards show `CONTENT.strokes.note` above `what`. Keys are ignored while a dialog is open.
+- The trailing-zero rule (PHYSICS 11) gives `\eta = 65\%` on the dual summary while the results tile
+  reads 65.0 %, and `w_out = 731` on Otto 3→4. Followed as written; worth a look in review.
 
 - **M3 (interactivity).** Checked at 1366 × 768 in the browser: every item of the list, numbers
   exact. New core modules, all tested: `pick.js` (dragging, hover), `tables.js` (state table,

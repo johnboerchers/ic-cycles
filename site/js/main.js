@@ -14,6 +14,9 @@ import { createTransport } from "./ui/transport.js";
 import { createParamsPanel } from "./ui/paramsPanel.js";
 import { createResultsPanel } from "./ui/resultsPanel.js";
 import { createStateTable } from "./ui/stateTable.js";
+import { createProcessCard } from "./ui/processCard.js";
+import { createInfoDialogs } from "./ui/infoDialogs.js";
+import { cardSteps, playheadCard, validCard, processStart, cardPhase } from "./core/steps.js";
 
 const store = createStore(defaultState());
 let model = buildModel(store.get());
@@ -24,10 +27,21 @@ let lastTime = null;
 
 const timeline = () => model.cycles[0].timeline;
 
-// Moves the playhead to a phase; it is stored as slot and tau (PHYSICS.md section 6).
+// Moves the playhead to a phase; it is stored as slot and tau (PHYSICS.md section 6). The
+// process card follows: inside a process it shows that process (core/steps.js).
 function setPhase(u, patch = {}) {
+  const st = store.get();
   const [f] = framesAt(model, u);
-  store.merge("playback", { slot: f.slot, tau: f.tau, ...patch });
+  const playback = { ...st.playback, slot: f.slot, tau: f.tau, ...patch };
+  const card = playheadCard(f, st.card);
+  store.set(card === st.card ? { playback } : { playback, card });
+}
+
+// Shows a card and puts the playhead, paused, at the end of that process (SPEC section 10).
+function showCard(card) {
+  const [f] = framesAt(model, cardPhase(model, card));
+  pendingStops = 0;
+  store.set({ card, playback: { ...store.get().playback, slot: f.slot, tau: f.tau, playing: false } });
 }
 
 const actions = {
@@ -79,6 +93,43 @@ const actions = {
   setOption(key, value) {
     store.merge("options", { [key]: value });
   },
+  // ---- process card (SPEC section 10)
+  // Guided tour: back to state 1, "Pause at each state" on, the intro showing.
+  guidedTour() {
+    pendingStops = 0;
+    const st = store.get();
+    store.set({
+      card: "intro",
+      options: { ...st.options, pauseAtStates: true },
+      playback: { ...st.playback, playing: false, slot: "C", tau: 0 },
+    });
+  },
+  // Next plays the next process and stops at its end. Once the last process has finished
+  // (the playhead is back at state 1), Next shows the summary.
+  cardNext() {
+    const { card, playback } = store.get();
+    const steps = cardSteps(model);
+    if (card === "summary") return;
+    const last = steps[steps.length - 2];
+    if (card === last && !playback.playing && phase === 0) store.set({ card: "summary" });
+    else actions.next();
+  },
+  cardBack() {
+    const steps = cardSteps(model);
+    const i = steps.indexOf(store.get().card);
+    if (i > 0) showCard(steps[i - 1]);
+  },
+  goToCard(card) {
+    showCard(card);
+  },
+  // Plays the card's process again from its start and stops at its end.
+  replayCard() {
+    const { card } = store.get();
+    if (card === "intro" || card === "summary") return;
+    pendingStops = 0;
+    setPhase(processStart(model, card), { playing: false });
+    actions.next();
+  },
   // Scrubbing (and dragging the state point) pauses playback and moves everything to the phase under the pointer.
   scrub(u) {
     pendingStops = 0;
@@ -95,6 +146,8 @@ const views = [
   createParamsPanel(document.getElementById("params-panel"), actions),
   createResultsPanel(document.getElementById("results-panel")),
   createStateTable(document.getElementById("states-panel")),
+  createProcessCard(document.getElementById("card-panel"), actions),
+  createInfoDialogs(document.getElementById("symbols-btn"), document.getElementById("model-btn")),
 ];
 
 function modelInputsChanged(state, prev) {
@@ -116,7 +169,14 @@ function show(state) {
 
 store.subscribe((state, prev) => {
   const rebuild = modelInputsChanged(state, prev);
-  if (rebuild) model = buildModel(state);
+  if (rebuild) {
+    model = buildModel(state);
+    // A card whose process no longer exists (another cycle, or x-3 when r_c reaches 1) is
+    // replaced; listeners may not set state themselves, so this follows right after.
+    const [f] = framesAt(model, phaseOf(model, state.playback));
+    const card = validCard(model, state.card, f);
+    if (card !== state.card) queueMicrotask(() => store.set({ card: validCard(model, store.get().card, f) }));
+  }
   if (rebuild || state.options !== prev.options || state.card !== prev.card) {
     for (const v of views) v.render(model, state);
   }
@@ -169,6 +229,7 @@ function typingTarget(el) {
 
 document.addEventListener("keydown", (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || typingTarget(e.target)) return;
+  if (document.querySelector("dialog[open]")) return; // keys belong to an open dialog
   const onButton = e.target.tagName === "BUTTON" || e.target.tagName === "INPUT";
   switch (e.key) {
     case " ":
