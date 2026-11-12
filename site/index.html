@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Engine cycles</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <script type="module" src="js/main.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <h1 class="app-title">Engine cycles</h1>
+      <div class="segmented" id="cycle-select" role="group" aria-label="Cycle">
+        <button type="button" data-cycle="otto" aria-pressed="true" title="Otto cycle (1)">Otto</button>
+        <button type="button" data-cycle="diesel" aria-pressed="false" title="Diesel cycle (2)">Diesel</button>
+        <button type="button" data-cycle="dual" aria-pressed="false" title="Dual cycle (3)">Dual</button>
+      </div>
+    </header>
+
+    <main class="app">
+      <section class="stage" aria-label="Engine and diagrams">
+        <div class="panel stage-panel" id="engine-panel">
+          <h2 class="panel-title">Engine</h2>
+        </div>
+        <div class="panel stage-panel" id="pv-panel">
+          <h2 class="panel-title"><var>P</var>–<var>v</var> diagram</h2>
+        </div>
+        <div class="panel stage-panel" id="ts-panel">
+          <h2 class="panel-title"><var>T</var>–<var>s</var> diagram</h2>
+        </div>
+      </section>
+
+      <section class="panel transport" id="transport" aria-label="Playback"></section>
+
+      <section class="lower" aria-label="Details">
+        <div class="panel placeholder" id="card-panel"><h2 class="panel-title">Process</h2></div>
+        <div class="panel placeholder" id="params-panel"><h2 class="panel-title">Parameters</h2></div>
+        <div class="panel placeholder" id="results-panel"><h2 class="panel-title">Results</h2></div>
+        <div class="panel placeholder" id="states-panel"><h2 class="panel-title">States</h2></div>
+        <div class="panel placeholder" id="energy-panel"><h2 class="panel-title">Energy</h2></div>
+        <div class="panel placeholder" id="efficiency-panel"><h2 class="panel-title">Efficiency</h2></div>
+      </section>
+    </main>
+  </body>
+</html>

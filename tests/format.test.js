@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatValue, formatTex, MINUS, MISSING } from "../site/js/core/format.js";
+import { formatValue, formatTex, formatTicks, MINUS, MISSING } from "../site/js/core/format.js";
 
 test("examples from PHYSICS.md section 11", () => {
   const cases = [
@@ -55,4 +55,12 @@ test("TeX values read as typed", () => {
   assert.equal(formatTex("eta", 0.5), "50\\%");
   assert.equal(formatTex("w", -12.25), "-12.3");
   assert.equal(formatTex("eta", NaN), "\\text{—}");
+});
+
+test("axis tick labels share the decimals their step needs", () => {
+  assert.deepEqual(formatTicks([0, 0.25, 0.5, 0.75, 1]), ["0", "0.25", "0.50", "0.75", "1.00"]);
+  assert.deepEqual(formatTicks([0, 1500, 3000, 4500, 6000]), ["0", "1500", "3000", "4500", "6000"]);
+  assert.deepEqual(formatTicks([0, 0.3, 0.6, 0.9, 1.2]), ["0", "0.3", "0.6", "0.9", "1.2"]);
+  assert.deepEqual(formatTicks([-0.2, 0, 0.2]), [`${MINUS}0.2`, "0", "0.2"]);
+  assert.deepEqual(formatTicks([5]), ["5"]);
 });

@@ -1,0 +1,582 @@
+/* Page layout and components. Colors and sizes come from tokens.css.
+   Desktop and projector layout (SPEC section 4): header, stage row (engine, P–v, T–s),
+   transport bar, then the panels. Everything down to the transport bar fits in 1366 x 768.
+   The narrower layouts arrive in M7. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--page);
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+var,
+.sym {
+  font-style: italic;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: 52px;
+  padding: 0 var(--space-4);
+}
+
+.app-title {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* A row of buttons acting as one control; the pressed one is filled. */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.segmented button {
+  min-width: 64px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.segmented button:hover {
+  background: var(--grid);
+  color: var(--ink);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.segmented.small button {
+  min-width: 0;
+  height: 26px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------------- page */
+
+.app {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-6);
+}
+
+.panel {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------- stage */
+
+.stage {
+  display: grid;
+  grid-template-columns: 22fr 39fr 39fr;
+  gap: var(--space-2);
+  height: clamp(360px, 62vh, 800px);
+}
+
+.stage-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+/* An SVG that renders at its box's pixel size: the box takes the free height and the SVG is
+   taken out of the flow so it never pushes the box bigger. */
+.fill-box {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.fill-box > svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.placeholder {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* ------------------------------------------------------------------ engine */
+
+.engine svg text {
+  font-family: var(--font-ui);
+}
+
+.engine .part {
+  stroke: var(--ink-2);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.engine .metal {
+  fill: var(--axis);
+}
+
+.engine .metal-light {
+  fill: var(--grid);
+}
+
+.engine .pin {
+  fill: var(--surface);
+}
+
+.engine .web {
+  fill: var(--page);
+  stroke: var(--axis);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.engine .groove {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.6;
+}
+
+.engine .dead-center {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.75;
+}
+
+.engine .small-label {
+  font-size: var(--text-xs);
+  fill: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.engine .tick-label {
+  font-size: var(--text-xs);
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.engine .thermo-tick {
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.engine .thermo-bar {
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.engine .pointer {
+  fill: var(--ink);
+}
+
+.engine .pointer-line {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.engine .energy-label {
+  font-size: var(--text-md);
+  fill: var(--ink);
+}
+
+.engine .energy-label .sub {
+  font-size: 10px;
+}
+
+.engine .gas-label {
+  font-size: var(--text-sm);
+  fill: var(--ink);
+}
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--grid);
+}
+
+.readout div {
+  min-width: 0;
+}
+
+.readout dt {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.readout dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.engine-caption {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  line-height: 16px;
+  min-height: 32px; /* two lines for every cycle, so the drawing keeps its size when switching */
+}
+
+/* ----------------------------------------------------------------- diagram */
+
+.diagram text {
+  font-family: var(--font-ui);
+}
+
+.diagram .grid-line {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+
+.diagram .axis-line {
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.diagram .tick-label {
+  font-size: var(--text-sm);
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram .axis-title {
+  font-size: var(--text-sm);
+  fill: var(--ink-2);
+}
+
+.diagram .curve {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram .trail {
+  fill: none;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram .marker {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.diagram .state-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+.diagram .drop-line {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+
+.diagram .dot {
+  fill: var(--ink);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.diagram .badge rect {
+  fill: var(--ink);
+}
+
+.diagram .badge text {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  fill: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- transport */
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 60px;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
+}
+
+.transport-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--grid);
+}
+
+.icon-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Play is the emphasized control: the page loads paused, waiting for it. */
+.icon-btn.play {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.icon-btn.play:hover {
+  background: var(--ink-2);
+}
+
+.icon-btn.play svg {
+  width: 20px;
+  height: 20px;
+}
+
+.speed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.control-label {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+/* Timeline bar: one segment per process, width proportional to its duration (SPEC section 7). */
+.timeline {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 160px;
+  height: 40px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.timeline:focus-visible {
+  outline-offset: 4px;
+}
+
+.tl-segments {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 2px;
+}
+
+.tl-seg {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  flex-basis: 0;
+  flex-shrink: 1;
+}
+
+.tl-label {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.tl-seg.current .tl-label {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.tl-bar {
+  position: relative;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.tl-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--c);
+  opacity: 0.3;
+}
+
+.tl-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--c);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+
+.tl-head {
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
+}
+
+/* Switch: a checkbox drawn as a sliding toggle. */
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+
+.switch-track {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--axis);
+  transition: background 0.15s;
+}
+
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--ink);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(14px);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ lower panels */
+
+.lower {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.lower .panel {
+  min-height: 200px;
+}

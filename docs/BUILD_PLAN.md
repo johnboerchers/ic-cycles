@@ -7,7 +7,7 @@ open and look at.
 
 - [x] M0 Setup: docs, reference fixture, teaching content, repository
 - [x] M1 Core model
-- [ ] M2 First light: engine, P–v diagram, transport
+- [x] M2 First light: engine, P–v diagram, transport
 - [ ] M3 Interactivity: parameters, results, T–s, dragging, state table
 - [ ] M4 Guided step-through and equations
 - [ ] M5 Energy bookkeeping, area shading, intake and exhaust strokes
@@ -360,6 +360,20 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M2 (first light).** Checked at 1366 × 768: all items of the list, readouts exact. Stage is 62vh
+  (SPEC says about half); header + stage + transport end at y ≈ 600. Engine text is laid out in
+  pixels beside a scaled geometry group, so labels stay 11–14 px at any size.
+- Additions to core, all tested: `formatTicks` in `format.js`; `segmentedScale` and `colorRamp` in
+  `scale.js`; playback helpers (`nextBoundary`, `previousStart`, `advancePhase`, `timelineSegments`,
+  `labeledStates`) in `model.js`. Gas ramp colors are read from the `--gas-*` tokens in render.
+- Readings chosen: "Next" (→) plays to the next state and stops, each extra press while playing
+  adds one process; "Previous" (←) jumps back without animating; Home keeps the play state;
+  scrubbing pauses; hiding the tab pauses. Work arrow is blue for w_in and green for w_out (the
+  energy flow, not the process), so Diesel 2→3 shows an orange q_in and a green w_out together.
+- Rough edges: on linear P–v the Diesel/dual top sits ~25 px from the P axis, so label "2" can touch
+  the P badge (log axes in M3 help); the 4→1 arrowhead is skipped where the curve is < 36 px long.
+  Buttons do not take focus on mouse click, so Space keeps meaning play after clicking them.
 
 - **M1 (core model).** `npm test`: 48 tests, every fixture section reproduced at 1e-9; regenerating
   the fixture gives a byte-identical file. `format.js` exposes `formatValue(quantity, x)` and

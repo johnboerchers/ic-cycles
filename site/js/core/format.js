@@ -1,6 +1,7 @@
 // Every number shown on screen is formatted here (PHYSICS.md section 11).
 //   formatValue(quantity, x)  text for the page: "689.2", "4811", "56.5 %", "−12.0", "—"
 //   formatTex(quantity, x)    for \val{…} in equations: trailing zeros trimmed, "56.5\%"
+//   formatTicks(values)       axis tick labels with the decimals their step needs
 // Quantities: T, P, v, s, q, w, u, mep, eta, ratio, k, cv, cp.
 
 export const MINUS = "−";
@@ -55,4 +56,25 @@ export function formatTex(quantity, x) {
   if (!exists(x)) return `\\text{${MISSING}}`;
   const s = trimZeros(digits(quantity, x));
   return quantity === "eta" ? `${s}\\%` : s;
+}
+
+// Decimals needed to write `step` exactly: 0.25 -> 2, 0.3 -> 1, 1500 -> 0.
+function decimalsFor(step) {
+  for (let d = 0; d < 10; d++) {
+    const scaled = Math.abs(step) * 10 ** d;
+    if (Math.abs(scaled - Math.round(scaled)) <= 1e-6 * Math.max(1, scaled)) return d;
+  }
+  return 10;
+}
+
+// Labels for evenly spaced axis ticks: every label gets the decimals the step needs
+// ("0.25", "0.50", "0.75"), zero is written "0", negatives get a true minus sign.
+export function formatTicks(values) {
+  const step = values.length > 1 ? values[1] - values[0] : 1;
+  const d = decimalsFor(step);
+  return values.map((x) => {
+    if (!exists(x)) return MISSING;
+    if (Math.abs(x) <= 1e-9 * Math.abs(step)) return "0";
+    return x.toFixed(d).replace("-", MINUS);
+  });
 }

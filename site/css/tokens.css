@@ -1,0 +1,53 @@
+/* Design tokens (SPEC section 16). Code refers to these names, never to raw colors.
+   Light theme only for now; the dark values are added with the theme switch in M7.
+   The four process colors were checked together for color-vision-deficiency separation:
+   do not substitute other hues. Text never uses a process color. */
+
+:root {
+  /* surfaces and ink */
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e; /* secondary ink */
+  --muted: #898781; /* axis labels */
+  --grid: #e1e0d9; /* grid hairline */
+  --axis: #c3c2b7; /* axis line */
+  --border: rgba(11, 11, 11, 0.1);
+
+  /* process roles: cool for the isentropic processes, warm for heat transfer */
+  --role-compression: #2a78d6;
+  --role-heatAdditionV: #eb6834;
+  --role-heatAdditionP: #eb6834; /* both heat additions share a color */
+  --role-expansion: #1baf7a;
+  --role-heatRejection: #eda100;
+  --role-exhaust: var(--muted); /* drawn dashed */
+  --role-intake: var(--muted); /* drawn dashed */
+
+  /* compare mode: A solid, B dashed */
+  --compare-a: #2a78d6;
+  --compare-b: #eb6834;
+
+  /* gas temperature, one-hue ramp on a fixed scale (K); clamped at both ends */
+  --gas-250: #feece5;
+  --gas-600: #fed3c4;
+  --gas-1000: #feb59b;
+  --gas-1400: #ff9068;
+  --gas-1800: #f26e3b;
+  --gas-2300: #d44f0f;
+  --gas-2800: #a83900;
+
+  /* type, shape, spacing (4 px grid) */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --focus-ring: 2px solid var(--ink);
+}
