@@ -6,7 +6,7 @@ open and look at.
 ## Status
 
 - [x] M0 Setup: docs, reference fixture, teaching content, repository
-- [ ] M1 Core model
+- [x] M1 Core model
 - [ ] M2 First light: engine, P–v diagram, transport
 - [ ] M3 Interactivity: parameters, results, T–s, dragging, state table
 - [ ] M4 Guided step-through and equations
@@ -360,6 +360,18 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M1 (core model).** `npm test`: 48 tests, every fixture section reproduced at 1e-9; regenerating
+  the fixture gives a byte-identical file. `format.js` exposes `formatValue(quantity, x)` and
+  `formatTex(quantity, x)`; quantities are T P v s q w u mep eta ratio k cv cp.
+- `frameAt` fields not in the fixture (`role`, `heatIn`, `heatOut`, `workSign`, `valves`) have
+  their own tests. While waiting in a forced slot, `role` is that of the process it waits at the
+  end of (as `processId` in the fixture) and `workSign` is 0.
+- Slots X and I have `processId: null` in the timeline (as in the fixture); frames use `1-0`/`0-1`.
+- `sideRatios` takes xv from the type for Otto (1) and Diesel (0), ignoring `side.xv`. `eta` is
+  NaN whenever no heat addition is non-degenerate, since rounding can leave qin a hair above 0.
+- PHYSICS section 11's s example `0.6906` matches no default cycle (default Otto s3 = 0.6905);
+  read as an illustration of the format only.
 
 - **M0 (setup).** The fixture, `tools/reference_cycles.py`, `site/js/content/content.js` and
   `tests/content.test.js` exist and `npm test` passes (7 tests). The equations in `content.js`
