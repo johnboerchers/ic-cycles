@@ -3,8 +3,8 @@
 A static web page for undergraduate thermodynamics students. An animated piston–cylinder moves
 in step with the state point on P–v and T–s diagrams of the ideal air-standard cycles. It is
 used two ways: projected in lecture by the instructor, and by students on their own. It will be
-hosted on GitHub Pages. The owner is a thermodynamics instructor, not a web developer: report
-in plain language and say what to look at, not how the code works.
+hosted on GitHub Pages. The owner teaches thermodynamics: report in plain language and lead
+with what to look at and try, not with how the code works.
 
 ## Where things are
 
