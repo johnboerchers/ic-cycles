@@ -338,7 +338,7 @@ One module, `core/format.js`, formats every number shown. No `toFixed` calls sca
 | T | 1 decimal | `689.2` |
 | P | 4 significant figures, no decimals at or above 1000 | `100.0`, `4811` |
 | v | 4 significant figures | `0.8610`, `0.1076` |
-| s | 4 decimals | `0.6906` |
+| s | 4 decimals | `0.6905` |
 | q, w, u | 1 decimal | `451.8` |
 | MEP | 1 decimal | `599.7` |
 | η | percent, 1 decimal | `56.5 %` |

@@ -45,7 +45,7 @@ with what to look at and try, not with how the code works.
 - **Per-frame code only updates existing elements.** `render` may build DOM, `tick` may not.
 - All asset paths are relative (the site is served from `/ic-cycles/`).
 - Do not copy text or figures from the textbook. Do not add the instructor's name, email or
-  institution anywhere unless asked.
+  institution anywhere unless asked (the copyright line in `LICENSE` is the one exception).
 - Plain, readable code with short comments where the physics is not obvious. No abstractions
   for hypothetical future features; SPEC section 18 lists what is out of scope.
 

@@ -2,6 +2,7 @@
   "name": "ic-cycles",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Interactive Otto, Diesel and dual cycle explorer for thermodynamics students",
   "type": "module",
   "scripts": {

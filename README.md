@@ -32,3 +32,7 @@ Then open http://localhost:8000.
 All explanations and equations are in
 [site/js/content/content.js](site/js/content/content.js). Equations are LaTeX. Run `npm test`
 after editing; it checks the file for broken references and unbalanced braces.
+
+## License
+
+MIT. See [LICENSE](LICENSE). You are welcome to use and adapt this in your own course.

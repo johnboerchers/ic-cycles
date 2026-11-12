@@ -376,4 +376,4 @@ Newest first. Keep each entry short.
 - **M0 (setup).** The fixture, `tools/reference_cycles.py`, `site/js/content/content.js` and
   `tests/content.test.js` exist and `npm test` passes (7 tests). The equations in `content.js`
   have been checked for balanced braces and known `\val` names but have not yet been rendered
-  by KaTeX; that happens in M4. No license file yet: the instructor has not chosen one.
+  by KaTeX; that happens in M4. The project is MIT-licensed (`LICENSE`).
