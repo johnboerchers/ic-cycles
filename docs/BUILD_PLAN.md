@@ -331,6 +331,9 @@ engine.
 - Complete `README.md`: what it is, a screenshot, how to run and test locally, the model's
   assumptions, how to edit the teaching text.
 - Go through every "Check in the browser" list of M2–M6 once more at 1366 × 768.
+- Fix the rough edges recorded in the notes below, in particular the pressure value badge
+  covering state label 2 at the top of a Diesel or dual cycle, and the missing arrowhead on the
+  short 4→1 segment.
 - Optional, only if all of the above is done and verified: gas molecules. About 80 dots in the
   gas, positions stored as fractions of the gas column so compression squeezes them together,
   jitter speed proportional to √T, count scaled by `massFraction` during the strokes, off under
