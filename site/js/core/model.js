@@ -101,15 +101,19 @@ export function timelineSegments(model) {
     });
 }
 
+// Whether a frame is in the intake or exhaust stroke.
+export const isStroke = (frame) => frame.slot === "X" || frame.slot === "I";
+
 // ------------------------------------------------------------------------------ playback
 
 // The cycle sampled at n evenly spaced phases, for dragging the state point (SPEC section 6):
-// [{ u, state, vCyl }] for u = 0, 1/n, ... (n - 1)/n.
+// [{ u, state, vCyl, stroke }] for u = 0, 1/n, ... (n - 1)/n. `stroke` marks the intake and
+// exhaust strokes, where P–v uses vCyl as the abscissa (PHYSICS.md section 8).
 export function phaseSamples(cycle, n = 600) {
   const out = [];
   for (let j = 0; j < n; j++) {
     const f = frameAt(cycle.solution, cycle.timeline, j / n);
-    out.push({ u: j / n, state: f.state, vCyl: f.vCyl });
+    out.push({ u: j / n, state: f.state, vCyl: f.vCyl, stroke: isStroke(f) });
   }
   return out;
 }

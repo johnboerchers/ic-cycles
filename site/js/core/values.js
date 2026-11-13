@@ -1,6 +1,7 @@
 // The \val{…} map for the equations and prose in content/content.js: every name listed in the
-// header of that file, formatted for TeX with formatTex (PHYSICS.md section 11), so inputs read
-// as typed: (300)(8)^{0.4}, not (300.0)(8)^{0.4}.
+// header of that file, formatted for TeX with formatTex (PHYSICS.md section 11). Values the user
+// typed in are trimmed so they read as typed, (300)(8)^{0.4}; computed values keep their full
+// format so a card agrees with the tables beside it: 731.0, 0.8610, 65.0\%.
 
 import { formatTex } from "./format.js";
 
@@ -16,6 +17,11 @@ const QUANTITY = {
 };
 
 export const VALUE_NAMES = Object.keys(QUANTITY);
+
+// The values the user types in (PHYSICS.md section 11). The ratios and k are trimmed by their
+// own format anyway; T1, P1 and Otto's qin are the ones this list changes.
+const TYPED_ALWAYS = ["T1", "P1", "k", "km1", "R", "r"];
+const TYPED_BY_CYCLE = { otto: ["qin"], diesel: ["rc"], dual: ["rp", "rc"] };
 
 // The raw numbers behind each name, from a solved cycle (core/cycle.js).
 export function rawValues(solution) {
@@ -46,7 +52,10 @@ export function rawValues(solution) {
 // name -> TeX string, ready to replace \val{name}.
 export function texValues(solution) {
   const raw = rawValues(solution);
-  return Object.fromEntries(VALUE_NAMES.map((name) => [name, formatTex(QUANTITY[name], raw[name])]));
+  const typed = new Set([...TYPED_ALWAYS, ...(TYPED_BY_CYCLE[solution.type] || [])]);
+  return Object.fromEntries(
+    VALUE_NAMES.map((name) => [name, formatTex(QUANTITY[name], raw[name], { trim: typed.has(name) })]),
+  );
 }
 
 // Replaces every \val{name} in `tex` by its value. An unknown name is a mistake in content.js.

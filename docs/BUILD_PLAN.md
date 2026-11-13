@@ -10,7 +10,7 @@ open and look at.
 - [x] M2 First light: engine, P–v diagram, transport
 - [x] M3 Interactivity: parameters, results, T–s, dragging, state table
 - [x] M4 Guided step-through and equations
-- [ ] M5 Energy bookkeeping, area shading, intake and exhaust strokes
+- [x] M5 Energy bookkeeping, area shading, intake and exhaust strokes
 - [ ] M6 Efficiency curves and compare mode
 - [ ] M7 Polish and publish
 
@@ -367,6 +367,19 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M5 (energy, shading, strokes).** Checked at 1366 × 768: every item of the list, numbers exact,
+  and the `\val` correction (Otto 3→4 `731.0`, v₁ `0.8610`, dual `65.0\%`). `formatTex` takes
+  `{trim}`; `values.js` lists the typed-in names. New tested core: `energy.js` (rows, totals,
+  progress per frame) and `labelSpot` in `pick.js` (where the loop label fits).
+- Readings chosen: the current energy row shows running values, other rows their totals (rows not
+  yet reached in secondary ink and outlined); a zero total draws no bar. The summary bar's w_net
+  share is secondary ink (the loop tint is ink too), q_out the heat-rejection color.
+- The three switches (pause, strokes, shade) sit stacked at the right end of the transport bar.
+  The strokes note shows both under P–v (SPEC 14) and on the stroke cards (M4); the engine readout
+  keeps the gas's own v (= v₁) during the strokes while the P–v badge shows the cylinder volume.
+- Valves open by dropping 10 units into the gas; no flow arrows. Turning the strokes off during a
+  stroke puts the playhead at state 1. Loop label is skipped when the loop is too thin to hold it.
 
 - **M4 (guided step-through).** KaTeX 0.16.47 vendored; every string in `content.js` rendered with
   `throwOnError` and `strict: "error"` on the first try, so no TeX was changed. Checked at 1366 × 768:

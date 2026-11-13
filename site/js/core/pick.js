@@ -42,3 +42,35 @@ export function nearestPhase(samples, x, y) {
   if (result.u >= 1) result.u = 0;
   return result;
 }
+
+// Whether (x, y) is inside a closed polygon of [x, y] pairs (even–odd rule).
+export function insidePolygon(points, x, y) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i], [xj, yj] = points[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Where a w × h label fits best inside a closed polygon (the shaded loop): the grid point
+// inside it farthest from its edges, with distances measured in label boxes so a wide label
+// is kept away from the sides more than from the top and bottom. Returns { x, y } or null
+// when no spot leaves the label clear of the edges.
+export function labelSpot(points, w, h, n = 32) {
+  if (points.length < 3) return null;
+  const a = w / h; // squash x so the label becomes an h × h square
+  const scaled = points.map(([x, y]) => [x / a, y]);
+  const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  let best = null;
+  for (let i = 1; i < n; i++) {
+    for (let j = 1; j < n; j++) {
+      const x = x0 + ((x1 - x0) * i) / n, y = y0 + ((y1 - y0) * j) / n;
+      if (!insidePolygon(points, x, y)) continue;
+      const d = distanceToPolyline([...scaled, scaled[0]], x / a, y);
+      if (!best || d > best.d) best = { x, y, d };
+    }
+  }
+  return best && best.d >= h / 2 + 2 ? { x: best.x, y: best.y } : null;
+}

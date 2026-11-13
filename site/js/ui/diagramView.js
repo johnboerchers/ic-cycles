@@ -5,11 +5,15 @@
 // Besides drawing: the axes rescale with a short transition when a parameter pushes the cycle
 // across a "nice" bound; the state point can be dragged along the cycle; hovering a state or a
 // process shows its numbers. P–v also has the piston strip and the log-axes switch.
+//
+// Area shading (linear axes only): the loop is tinted and labeled, and the area under the
+// current process fills up to the dot (work on P–v, heat on T–s). With the intake and exhaust
+// strokes on, P–v gets the P1 line with state 0, and the point runs along it using vCyl.
 
 import { linear, logScale, ticks, logTicks } from "../core/scale.js";
 import { formatTicks, formatLogTicks, formatValue } from "../core/format.js";
-import { labeledStates, phaseSamples } from "../core/model.js";
-import { nearestPhase, distanceToPolyline } from "../core/pick.js";
+import { labeledStates, phaseSamples, isStroke } from "../core/model.js";
+import { nearestPhase, distanceToPolyline, labelSpot } from "../core/pick.js";
 import { energyTerms } from "../core/tables.js";
 import { colorRamp } from "../core/scale.js";
 import { GAS_RAMP_T } from "../state/defaults.js";
@@ -59,6 +63,7 @@ let instances = 0;
 
 export function createDiagramView(container, { kind, actions }) {
   const cfg = KINDS[kind];
+  const isPv = kind === "pv";
   const uid = `diagram${++instances}`;
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -71,12 +76,14 @@ export function createDiagramView(container, { kind, actions }) {
   if (cfg.canLog) logBox = makeSwitch(head, "Log axes", (on) => actions.setOption("logAxes", on), "small");
 
   const box = htmlEl("div", { class: "fill-box" }, container);
+  // With the strokes on, P–v explains what its v axis means for an open cylinder (SPEC 14).
+  const note = isPv ? htmlEl("p", { class: "diagram-note", hidden: "", text: CONTENT.strokes.note }, container) : null;
   const svg = svgEl("svg", { class: "diagram", role: "img", "aria-labelledby": `${uid}-title` }, box);
   svgEl("title", { id: `${uid}-title`, text: cfg.name }, svg);
   const tip = htmlEl("div", { class: "tooltip", role: "tooltip", hidden: "" }, box);
   // Drawing order, bottom to top.
   const layer = {};
-  for (const name of ["grid", "axes", "strip", "drops", "curves", "trails", "arrows", "markers", "labels", "dots", "badges"]) {
+  for (const name of ["grid", "shade", "axes", "strip", "drops", "curves", "trails", "arrows", "markers", "labels", "dots", "badges"]) {
     layer[name] = svgEl("g", {}, svg);
   }
 
@@ -85,6 +92,8 @@ export function createDiagramView(container, { kind, actions }) {
   let lastFrames = null;
   let size = { w: 0, h: 0 };
   let log = false;
+  let shade = false; // area shading on (the switch, and linear axes)
+  let strokes = false; // intake and exhaust strokes in the timeline
   let shown = null; // axis bounds on screen now, [[x0, x1], [y0, y1]]
   let target = null; // axis bounds being moved to
   let tween = null;
@@ -111,6 +120,9 @@ export function createDiagramView(container, { kind, actions }) {
     lastState = state;
     log = newLog;
     if (logBox) logBox.checked = log;
+    shade = state.options.shade && !log;
+    strokes = model.cycles[0].timeline.slots.some((sl) => sl.id === "X" && sl.u1 > sl.u0);
+    if (note) note.hidden = !strokes;
     const css = getComputedStyle(document.documentElement);
     gasColor = colorRamp(GAS_RAMP_T.map((T) => [T, css.getPropertyValue(`--gas-${T}`)]));
     samples = model.cycles.map((c) => phaseSamples(c));
@@ -226,6 +238,9 @@ export function createDiagramView(container, { kind, actions }) {
     for (const p of drawn) {
       screen[p.id] = pts[p.id].map((pt) => [sx(pt[cfg.x.key]), sy(pt[cfg.y.key]), pt.lambda]);
     }
+    if (shade) drawLoop(drawn.flatMap((p) => screen[p.id]), cycle === model.cycles[0]);
+    const st = solution.states;
+    const line = isPv && strokes ? drawStrokeLine(st) : null;
 
     // One curve per process in its role color, with an arrowhead at its middle.
     for (const p of drawn) {
@@ -259,7 +274,12 @@ export function createDiagramView(container, { kind, actions }) {
       screen,
       corners,
       drawn,
-      pick: phases.map((p) => ({ u: p.u, x: sx(p.state[cfg.x.key]), y: sy(p.state[cfg.y.key]) })),
+      // T–s stays on state 1 during the strokes, so those phases cannot be picked there.
+      pick: phases
+        .filter((p) => isPv || !p.stroke)
+        .map((p) => ({ u: p.u, x: sx(isPv && p.stroke ? p.vCyl : p.state[cfg.x.key]), y: sy(p.state[cfg.y.key]) })),
+      line,
+      area: shade ? svgEl("path", { class: "area-shade" }, layer.shade) : null,
       trail: svgEl("path", { class: "trail" }, layer.trails),
       dropX: svgEl("line", { class: "drop-line" }, layer.drops),
       dropY: svgEl("line", { class: "drop-line" }, layer.drops),
@@ -268,6 +288,39 @@ export function createDiagramView(container, { kind, actions }) {
       badgeY: badge(),
       role: null,
     };
+  }
+
+  // The enclosed loop, tinted, with its label (SPEC section 6): w_net on P–v and
+  // q_net = w_net on T–s, where it fits best inside the loop (none when the loop is too thin).
+  function drawLoop(points, withLabel) {
+    if (points.length < 3) return;
+    svgEl("path", { class: "loop-shade", d: `${polyline(points)}Z` }, layer.shade);
+    const spot = withLabel ? labelSpot(points, isPv ? 34 : 90, 16) : null;
+    if (!spot) return;
+    const text = svgEl("text", { class: "loop-label", x: px(spot.x), y: px(spot.y), "text-anchor": "middle", "dominant-baseline": "central" }, layer.labels);
+    const sym = (s, sub, dy) => {
+      svgEl("tspan", { "font-style": "italic", dy, text: s }, text);
+      svgEl("tspan", { class: "sub", dy: "0.35em", text: sub }, text);
+    };
+    if (isPv) {
+      sym("w", "net");
+    } else {
+      sym("q", "net");
+      svgEl("tspan", { dy: "-0.35em", text: " = " }, text);
+      sym("w", "net");
+    }
+  }
+
+  // The intake and exhaust strokes on P–v: a dashed line at P1 from v2 to v1, with state 0 at
+  // its left end (SPEC section 6).
+  function drawStrokeLine(st) {
+    const y = sy(st["1"].P);
+    const x0 = sx(st["2"].v);
+    const x1 = sx(st["1"].v);
+    svgEl("line", { class: "stroke-line", x1: px(x0), x2: px(x1), y1: px(y), y2: px(y) }, layer.curves);
+    svgEl("circle", { class: "marker", cx: px(x0), cy: px(y), r: 4 }, layer.markers);
+    svgEl("text", { class: "state-label", x: px(x0 - 9), y: px(Math.max(plot.top + 6, y - 11)), "text-anchor": "middle", "dominant-baseline": "central", text: "0" }, layer.labels);
+    return { y, x0, x1 };
   }
 
   // Piston strip (P–v, linear axes): a cylinder from v = 0 to v1 on the v scale, the gas up to
@@ -317,7 +370,9 @@ export function createDiagramView(container, { kind, actions }) {
     lastState = state;
     items.forEach((it, i) => {
       const f = frames[i];
-      const valueX = f.state[cfg.x.key];
+      const stroke = isStroke(f);
+      // During the strokes P–v uses the cylinder volume per unit trapped mass (PHYSICS.md 8).
+      const valueX = isPv && stroke ? f.vCyl : f.state[cfg.x.key];
       const valueY = f.state[cfg.y.key];
       const x = sx(valueX);
       const y = sy(valueY);
@@ -328,17 +383,26 @@ export function createDiagramView(container, { kind, actions }) {
       setLine(it.dropY, plot.left, y, x, y);
 
       // Trail: the part of the current process already covered, 2 px thicker than the curve.
+      // During a stroke on P–v it runs along the P1 line from where the stroke started.
       const pts = it.screen[f.processId];
+      let d = "";
+      let x0 = x;
       if (pts) {
-        let d = `M${px(pts[0][0])} ${px(pts[0][1])}`;
+        d = `M${px(pts[0][0])} ${px(pts[0][1])}`;
+        x0 = pts[0][0];
         for (let j = 1; j < pts.length && pts[j][2] < f.lambda; j++) d += `L${px(pts[j][0])} ${px(pts[j][1])}`;
-        it.trail.setAttribute("d", `${d}L${px(x)} ${px(y)}`);
-        if (it.role !== f.role) {
-          it.trail.style.stroke = roleColor(f.role);
-          it.role = f.role;
-        }
-      } else {
-        it.trail.setAttribute("d", "");
+        d += `L${px(x)} ${px(y)}`;
+      } else if (stroke && it.line) {
+        x0 = f.slot === "X" ? it.line.x1 : it.line.x0;
+        d = `M${px(x0)} ${px(it.line.y)}L${px(x)} ${px(y)}`;
+      }
+      it.trail.setAttribute("d", d);
+      // Shading: the area under the trail down to the axis, the work or heat so far.
+      if (it.area) it.area.setAttribute("d", d ? `${d}L${px(x)} ${px(plot.bottom)}L${px(x0)} ${px(plot.bottom)}Z` : "");
+      if (it.role !== f.role) {
+        it.trail.style.stroke = roleColor(f.role);
+        if (it.area) it.area.style.fill = roleColor(f.role);
+        it.role = f.role;
       }
 
       setBadge(it.badgeX, formatValue(cfg.x.key, valueX), x, plot.bottom + 17, "middle");

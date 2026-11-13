@@ -1,12 +1,13 @@
 // Transport bar (SPEC section 7): restart, previous process, play/pause, next process; speed;
 // the timeline bar, which is the progress indicator and can be clicked or dragged to scrub;
-// and the "Pause at each state" switch. All actions go through `actions` (main.js).
+// and the switches "Pause at each state", "Show intake and exhaust strokes" and "Shade work and
+// heat". All actions go through `actions` (main.js).
 
 import { timelineSegments } from "../core/model.js";
 import { segmentedScale } from "../core/scale.js";
 import { CONTENT } from "../content/content.js";
 import { SPEEDS, TIMING } from "../state/defaults.js";
-import { htmlEl, svgEl, noMouseFocus, roleColor, px } from "./dom.js";
+import { htmlEl, svgEl, noMouseFocus, roleColor, px, makeSwitch } from "./dom.js";
 
 const GAP = 2; // px between timeline segments
 
@@ -61,20 +62,12 @@ export function createTransport(container, actions) {
   const track = htmlEl("div", { class: "tl-segments" }, bar);
   const head = htmlEl("div", { class: "tl-head" }, bar);
 
-  // --- switch
-  const sw = noMouseFocus(htmlEl("label", { class: "switch" }, container));
-  const pauseBox = htmlEl("input", { type: "checkbox", role: "switch" }, sw);
-  htmlEl("span", { class: "switch-track", "aria-hidden": "true" }, sw);
-  sw.append("Pause at each state");
-  // A click on the label still focuses the checkbox; after a pointer toggle, let it go again so
-  // Space keeps meaning play/pause. Keyboard users keep their focus.
-  let pointerToggle = false;
-  sw.addEventListener("pointerdown", () => (pointerToggle = true));
-  pauseBox.addEventListener("change", () => {
-    actions.setPauseAtStates(pauseBox.checked);
-    if (pointerToggle) pauseBox.blur();
-    pointerToggle = false;
-  });
+  // --- switches, stacked (makeSwitch gives focus back after a pointer toggle, so Space keeps
+  // meaning play/pause)
+  const options = htmlEl("div", { class: "transport-options" }, container);
+  const pauseBox = makeSwitch(options, "Pause at each state", (on) => actions.setPauseAtStates(on), "small");
+  const strokesBox = makeSwitch(options, "Show intake and exhaust strokes", (on) => actions.setOption("strokes", on), "small");
+  const shadeBox = makeSwitch(options, "Shade work and heat", (on) => actions.setOption("shade", on), "small");
 
   let segments = [];
   let segEls = [];
@@ -124,6 +117,10 @@ export function createTransport(container, actions) {
     width = track.clientWidth;
     rescale();
     lastState = state;
+    strokesBox.checked = state.options.strokes;
+    shadeBox.checked = state.options.shade;
+    // The strokes switch is hidden in compare mode (SPEC section 14).
+    strokesBox.parentElement.hidden = state.mode === "compare";
   }
 
   function tick(frames, state) {

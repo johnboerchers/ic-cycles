@@ -15,6 +15,7 @@ import { createParamsPanel } from "./ui/paramsPanel.js";
 import { createResultsPanel } from "./ui/resultsPanel.js";
 import { createStateTable } from "./ui/stateTable.js";
 import { createProcessCard } from "./ui/processCard.js";
+import { createEnergyView } from "./ui/energyView.js";
 import { createInfoDialogs } from "./ui/infoDialogs.js";
 import { cardSteps, playheadCard, validCard, processStart, cardPhase } from "./core/steps.js";
 
@@ -146,6 +147,7 @@ const views = [
   createParamsPanel(document.getElementById("params-panel"), actions),
   createResultsPanel(document.getElementById("results-panel")),
   createStateTable(document.getElementById("states-panel")),
+  createEnergyView(document.getElementById("energy-panel")),
   createProcessCard(document.getElementById("card-panel"), actions),
   createInfoDialogs(document.getElementById("symbols-btn"), document.getElementById("model-btn")),
 ];

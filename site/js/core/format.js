@@ -1,6 +1,7 @@
 // Every number shown on screen is formatted here (PHYSICS.md section 11).
 //   formatValue(quantity, x)  text for the page: "689.2", "4811", "56.5 %", "−12.0", "—"
-//   formatTex(quantity, x)    for \val{…} in equations: trailing zeros trimmed, "56.5\%"
+//   formatTex(quantity, x, {trim})  for \val{…} in equations: "731.0", "56.5\%"; with trim
+//                             (values the user typed in) trailing zeros go: "300", "800"
 //   formatTicks(values)       axis tick labels with the decimals their step needs
 // Quantities: T, P, v, s, q, w, u, mep, eta, ratio, k, cv, cp.
 
@@ -51,10 +52,12 @@ export function formatValue(quantity, x) {
   return quantity === "eta" ? `${s} %` : s;
 }
 
-// TeX keeps an ASCII "-", which TeX typesets as a minus sign.
-export function formatTex(quantity, x) {
+// TeX keeps an ASCII "-", which TeX typesets as a minus sign. Computed values keep their full
+// format so a card agrees with the tables; only typed-in values are trimmed to read as typed.
+export function formatTex(quantity, x, { trim = false } = {}) {
   if (!exists(x)) return `\\text{${MISSING}}`;
-  const s = trimZeros(digits(quantity, x));
+  const d = digits(quantity, x);
+  const s = trim ? trimZeros(d) : d;
   return quantity === "eta" ? `${s}\\%` : s;
 }
 

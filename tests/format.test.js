@@ -40,19 +40,22 @@ test("true minus sign, no negative zero, dash for missing values", () => {
   assert.throws(() => formatValue("speed", 1));
 });
 
-test("TeX values read as typed", () => {
-  assert.equal(formatTex("T", 300), "300");
+test("TeX values keep their full format; typed-in values are trimmed", () => {
+  assert.equal(formatTex("T", 300, { trim: true }), "300");
+  assert.equal(formatTex("T", 300), "300.0");
   assert.equal(formatTex("T", 689.2190129982209), "689.2");
   assert.equal(formatTex("ratio", 8), "8");
   assert.equal(formatTex("k", 0.4), "0.4");
-  assert.equal(formatTex("P", 100), "100");
+  assert.equal(formatTex("P", 100, { trim: true }), "100");
+  assert.equal(formatTex("P", 100), "100.0");
   assert.equal(formatTex("P", 4811.2), "4811");
   assert.equal(formatTex("P", 1000), "1000");
-  assert.equal(formatTex("v", 0.861), "0.861");
+  assert.equal(formatTex("v", 0.861), "0.8610");
   assert.equal(formatTex("cv", 0.7175000000000001), "0.7175");
-  assert.equal(formatTex("q", 800.0000000000002), "800");
+  assert.equal(formatTex("q", 800.0000000000002, { trim: true }), "800");
+  assert.equal(formatTex("w", 731.0), "731.0");
   assert.equal(formatTex("eta", 0.5647247183519378), "56.5\\%");
-  assert.equal(formatTex("eta", 0.5), "50\\%");
+  assert.equal(formatTex("eta", 0.65), "65.0\\%");
   assert.equal(formatTex("w", -12.25), "-12.3");
   assert.equal(formatTex("eta", NaN), "\\text{—}");
 });

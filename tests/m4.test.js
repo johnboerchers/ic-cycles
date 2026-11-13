@@ -36,7 +36,7 @@ test("values: every name in the header of content.js has a value", () => {
   }
 });
 
-test("values: default Otto, inputs read as typed (trailing zeros trimmed)", () => {
+test("values: default Otto, typed-in values trimmed, computed values in full format", () => {
   const v = texValues(solutionFor("otto"));
   assert.equal(v.T1, "300");
   assert.equal(v.P1, "100");
@@ -51,10 +51,10 @@ test("values: default Otto, inputs read as typed (trailing zeros trimmed)", () =
   assert.equal(v.P2, "1838");
   assert.equal(v.T3, "1804.2");
   assert.equal(v.P3, "4811");
-  assert.equal(v.v1, "0.861");
+  assert.equal(v.v1, "0.8610");
   assert.equal(v.eta, "56.5\\%");
   assert.equal(v.w12, "279.3");
-  assert.equal(v.w34, "731");
+  assert.equal(v.w34, "731.0");
   assert.equal(v.qout, "348.2");
   assert.equal(v.wnet, "451.8");
   assert.equal(v.wstroke, "75.3");
@@ -69,8 +69,11 @@ test("values: Diesel work during heat addition and dual heat split", () => {
   const d = texValues(solutionFor("diesel"));
   assert.equal(d.wP, "273.6");
   assert.equal(d.qin, "957.6");
-  assert.equal(d.qV, "0");
+  assert.equal(d.qV, "0.0");
   assert.equal(d.rexp, "9");
+  assert.equal(d.rc, "2");
+  assert.equal(texValues(solutionFor("dual")).eta, "65.0\\%");
+  assert.equal(texValues(solutionFor("dual", { rp: 1.5 })).rp, "1.5");
   const dualRaw = rawValues(solutionFor("dual"));
   assertClose(dualRaw.qV + dualRaw.qP, dualRaw.qin, "dual qV + qP = qin");
   assertClose(dualRaw.w12, -solutionFor("dual").processes[0].w, "w12 is a magnitude");
@@ -79,7 +82,13 @@ test("values: Diesel work during heat addition and dual heat split", () => {
 test("values: a cycle that adds no heat shows eta as a TeX-safe dash", () => {
   const v = texValues(solutionFor("dual", { rp: 1, rc: 1 }));
   assert.equal(v.eta, "\\text{—}");
-  assert.equal(v.qin, "0");
+  assert.equal(v.qin, "0.0");
+});
+
+test("values: qin is trimmed only where the user typed it (Otto)", () => {
+  assert.equal(texValues(solutionFor("otto", { qin: 1200 })).qin, "1200");
+  assert.equal(texValues(solutionFor("otto", {}, { T1: 290, P1: 95 })).T1, "290");
+  assert.equal(texValues(solutionFor("otto", {}, { T1: 290, P1: 95 })).P1, "95");
 });
 
 test("fillValues: replaces every \\val and rejects unknown names", () => {

@@ -1254,3 +1254,251 @@ sub {
   white-space: nowrap;
   text-align: right;
 }
+
+/* ------------------------------------------------------------ M5 additions */
+
+/* Energy panel (SPEC section 12): process, heat, work and Δu; Δu diverges from a zero line in
+   the middle of a cell twice as wide, so every bar is on the same scale. */
+.energy {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.energy-grid {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+  column-gap: var(--space-3);
+}
+
+.energy-row {
+  display: contents;
+}
+
+.energy-head > span {
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--grid);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.energy-head > span:last-child {
+  text-align: center;
+}
+
+.energy-name,
+.energy-cell {
+  padding: 5px 0 4px;
+}
+
+.energy-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.energy-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.energy-label {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.energy-cell.diverging .energy-label {
+  justify-content: center;
+}
+
+.energy-value {
+  margin-left: auto;
+}
+
+.energy-cell.diverging .energy-value {
+  margin-left: 0;
+}
+
+.energy-value.zero {
+  margin-left: 0;
+  color: var(--ink-2);
+}
+
+.energy-track {
+  position: relative;
+  height: 8px;
+}
+
+.energy-zero {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--axis);
+}
+
+.energy-outline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border: 1px solid var(--c);
+  border-radius: 2px;
+}
+
+.energy-outline.pos {
+  left: 50%;
+}
+
+.energy-outline.neg {
+  left: auto;
+  right: 50%;
+}
+
+.energy-fill {
+  position: absolute;
+  inset: -1px;
+  background: var(--c);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+
+.energy-outline.neg .energy-fill {
+  transform-origin: 100% 50%;
+}
+
+.energy-row.stroke .energy-outline {
+  border-style: dashed;
+}
+
+.energy-row[data-status="ahead"] .energy-value {
+  color: var(--ink-2);
+}
+
+.energy-row[data-status="current"] .energy-name {
+  font-weight: 650;
+}
+
+.energy-cancel {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-2);
+}
+
+.energy-totals {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--grid);
+}
+
+.energy-summary {
+  margin-top: var(--space-3);
+}
+
+.energy-eta {
+  margin-bottom: 4px;
+}
+
+.summary-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+}
+
+.summary-bar > span {
+  flex-basis: 0;
+  border-radius: 2px;
+}
+
+.summary-net {
+  background: var(--ink-2);
+}
+
+.summary-out {
+  background: var(--role-heatRejection);
+}
+
+.summary-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-top: 4px;
+}
+
+.summary-legend > span {
+  white-space: nowrap;
+}
+
+.summary-legend .chip {
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+.summary-total {
+  margin-left: auto;
+  color: var(--ink-2);
+}
+
+/* Area shading (SPEC section 6): the loop in ink at 6 %, the area under the current process in
+   its role color at 18 %. */
+.diagram .loop-shade {
+  fill: var(--ink);
+  fill-opacity: 0.06;
+  stroke: none;
+}
+
+.diagram .area-shade {
+  fill-opacity: 0.18;
+  stroke: none;
+}
+
+.diagram .loop-label {
+  font-size: 13px;
+  fill: var(--ink);
+}
+
+.diagram .loop-label .sub {
+  font-size: 10px;
+}
+
+/* The intake and exhaust strokes on P–v: muted ink, dashed (SPEC section 16). */
+.diagram .stroke-line {
+  stroke: var(--role-exhaust);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.diagram-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.diagram-note[hidden] {
+  display: none;
+}
+
+/* Transport switches, stacked at the right end of the bar. */
+.transport-options {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.transport-options .switch[hidden] {
+  display: none;
+}
+
+.energy-outline[hidden] {
+  display: none;
+}
