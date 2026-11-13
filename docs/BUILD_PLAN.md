@@ -338,6 +338,8 @@ engine.
 - Fix the rough edges recorded in the notes below, in particular the pressure value badge
   covering state label 2 at the top of a Diesel or dual cycle, and the missing arrowhead on the
   short 4→1 segment.
+- In compare mode, keep the efficiency chart's marker labels clear of the curves (with peak
+  pressure held equal at the defaults, the "B 65.3 %" label touches curve A).
 - Optional, only if all of the above is done and verified: gas molecules. About 80 dots in the
   gas, positions stored as fractions of the gas column so compression squeezes them together,
   jitter speed proportional to √T, count scaled by `massFraction` during the strokes, off under
