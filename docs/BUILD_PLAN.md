@@ -12,7 +12,7 @@ open and look at.
 - [x] M4 Guided step-through and equations
 - [x] M5 Energy bookkeeping, area shading, intake and exhaust strokes
 - [x] M6 Efficiency curves and compare mode
-- [ ] M7 Polish and publish
+- [x] M7 Polish and publish
 
 ## For the instructor: how to run this
 
@@ -369,6 +369,12 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M7 part B (publish).** Repository public and Pages enabled on 2026-11-13, both after the
+  instructor's yes. `.github/workflows/pages.yml` runs `npm test`, then deploys `site/` with
+  checkout v7, setup-node v7 (Node 22), configure-pages v6, upload-pages-artifact v5 and
+  deploy-pages v5. First run green; the live page loads every file from the site itself, no
+  console messages. From now on a push to `main` deploys to students (CLAUDE.md, "Git").
 
 - **M7 part A (polish).** Not ticked: M7 completes with part B. Checked at 1366 × 768, 820 × 1180
   and 390 × 844, light and dark, Explore and Compare, playing: no console messages, no sideways
