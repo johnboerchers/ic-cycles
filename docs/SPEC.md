@@ -280,7 +280,9 @@ Overlays two cycles, A and B, that share state 1 and *k*.
 - **Defaults:** A Otto, B Diesel, *r* = 12, *q*<sub>in</sub> = 1000 kJ/kg, *P*<sub>max</sub> =
   7000 kPa. Ranges: *r* 8–20, *q*<sub>in</sub> 400–1200, *P*<sub>max</sub> 4000–12000.
 - **Diagrams.** Both cycles on the same axes. Here color means the cycle, not the process:
-  A solid in color A, B dashed in color B, each with its own dot and state labels.
+  A solid in color A, B dashed in color B, each with its own dot and state labels. The piston
+  strip and the area shading are hidden in compare mode (two overlapping loops make both
+  unreadable); the log-axes switch stays.
 - **Engines.** Two engines side by side in the engine panel, labeled A and B, animated on one
   shared timeline (PHYSICS.md section 6, forced slots). During heat addition the difference
   between the cycles is visible directly: one piston holds still while the other moves.
