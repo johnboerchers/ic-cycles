@@ -370,6 +370,27 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 
 Newest first. Keep each entry short.
 
+- **M7 part A (polish).** Not ticked: M7 completes with part B. Checked at 1366 × 768, 820 × 1180
+  and 390 × 844, light and dark, Explore and Compare, playing: no console messages, no sideways
+  scroll; every M2–M6 list re-run at 1366 × 768 with exact numbers; tap targets ≥ 40 px on touch.
+  The pane's screenshots lag one frame when it is hidden; headless Chrome driven over the DevTools
+  protocol (own static server, `Emulation.*` for size, theme, touch, reduced motion) gave reliable
+  full-size captures. New tested core: `describe.js` (SVG aria-labels), `clearSpot` in `efficiency.js`.
+- Layout: `.stage-top` wraps engine + P–v (`display: contents` on desktop; a grid on tablet; the
+  sticky block on a phone, where `.stage` is `display: contents` and the transport is moved last
+  with `order` so `bottom: 0` holds). Focus view is `body.focus`; text sizes are tokens that
+  focus view scales (`--ui-scale` = 1.25, read by the SVG views for their pixel margins).
+- Readings chosen: on a phone the engine caption is hidden, readouts are three short lines, the
+  Focus button is hidden (F still hides the panels), the switches scroll sideways in one row, and
+  compare mode drops the P–v key (the engines beside it carry A/B). Narrow engines drop the
+  thermometer and put the w label under its arrow. The theme toggle is remembered in localStorage.
+- Rough edges fixed: a process shorter than 24 px gets a smaller arrowhead just inside the loop;
+  a top corner near the P/T axis is labeled straight above its marker when there is room;
+  labels of nearby corners (4 and 1) are pushed apart; marker values on the efficiency chart go to
+  the first spot clear of all curves. The badge and label 2 had not overlapped since the M3
+  clamp (≥ 9 px apart); the straight-above label keeps them further apart.
+- Not done: the optional gas molecules. Reduced motion was checked in headless Chrome only.
+
 - **M6 (efficiency, compare).** Checked at 1366 × 768: every item of the list, numbers exact. The
   browser pane was hidden, which stops `requestAnimationFrame`; playback was watched through the
   real clock with rAF swapped for a 16 ms timer from the console. New tested core: `efficiency.js`

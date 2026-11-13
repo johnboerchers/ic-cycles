@@ -10,7 +10,7 @@
 
 import { linear } from "../core/scale.js";
 import { formatValue } from "../core/format.js";
-import { exploreCurves, compareCurves, spreadLabels, R_RANGE } from "../core/efficiency.js";
+import { exploreCurves, compareCurves, spreadLabels, clearSpot, R_RANGE } from "../core/efficiency.js";
 import { clampTo } from "../core/params.js";
 import { PARAMS, COMPARE, ENGINE_BANDS } from "../state/defaults.js";
 import { svgEl, htmlEl, px, polyline } from "./dom.js";
@@ -25,13 +25,11 @@ const CHAR_W = 7.2;
 const crisp = (v) => Math.round(v) + 0.5;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-let instances = 0;
 
 export function createEfficiencyView(container, { actions }) {
-  const uid = `eff${++instances}`;
   const box = htmlEl("div", { class: "fill-box eff-box" }, container);
-  const svg = svgEl("svg", { class: "diagram efficiency", role: "img", "aria-labelledby": `${uid}-title` }, box);
-  const titleEl = svgEl("title", { id: `${uid}-title`, text: "Thermal efficiency against compression ratio" }, svg);
+  const svg = svgEl("svg", { class: "diagram efficiency", role: "img", "aria-label": "Thermal efficiency against compression ratio" }, box);
+  const titleEl = svgEl("title", { text: "Thermal efficiency against compression ratio" }, svg);
   const layer = {};
   for (const name of ["bands", "grid", "axes", "refs", "main", "labels", "hover", "markers"]) layer[name] = svgEl("g", {}, svg);
 
@@ -79,7 +77,7 @@ export function createEfficiencyView(container, { actions }) {
       const x1 = sx(b.r[1]);
       svgEl("rect", { class: "eff-band", x: px(x0), y: plot.top, width: px(x1 - x0), height: px(plot.bottom - plot.top) }, layer.bands);
       // Two lines ("gasoline" / "engines"): the bands are narrow.
-      const label = svgEl("text", { class: "eff-band-label", "text-anchor": "middle" }, layer.bands);
+      const label = svgEl("text", { class: "eff-band-label", "text-anchor": "middle" }, layer.labels); // above the grid
       b.label.split(" ").forEach((word, i) => svgEl("tspan", { x: px((x0 + x1) / 2), y: plot.top + 11 + 12 * i, text: word }, label));
     }
 
@@ -121,20 +119,32 @@ export function createEfficiencyView(container, { actions }) {
       labelParts(layer.labels, { class: e.cls, x: px(x + 2), y: px(ys[i]), "dominant-baseline": "central" }, e.c.label);
     });
 
-    // Markers with their values. Values sit above-left of the marker, spread apart vertically.
+    // Markers with their values. Each value goes to the first spot around its marker that keeps
+    // clear of the curves and of the values already placed: above-left first, as in explore
+    // mode, then the other corners (core/efficiency.js, clearSpot).
     const ms = data.markers.filter((m) => m.r >= R_RANGE[0] && m.r <= R_RANGE[1]);
-    const valueY = spreadLabels(ms.map((m) => sy(m.eta) - 16), 18, plot.top + 8, plot.bottom - 8);
-    ms.forEach((m, i) => {
+    const obstacles = [...data.main, ...data.refs].map((c) => screen(c.points));
+    const placed = ms.map((m) => {
       const x = sx(m.r);
       const y = sy(m.eta);
       const text = model.mode === "compare" ? `${m.key.toUpperCase()} ${formatValue("eta", m.eta)}` : formatValue("eta", m.eta);
-      const w = CHAR_W * text.length + 10;
-      const lx = x - w / 2 - 4 < plot.left ? x + 8 : x - 8;
-      svgEl("text", { class: "eff-value", x: px(lx), y: px(valueY[i]), "text-anchor": lx > x ? "start" : "end", "dominant-baseline": "central", text }, layer.labels);
+      const box = { w: CHAR_W * text.length + 4, h: 16 };
+      const dx = 8 + box.w / 2;
+      const spots = [[-dx, -16], [dx, -16], [dx, 16], [-dx, 16], [-dx, -32], [dx, -32], [dx, 32], [-dx, 32]]
+        .map(([ox, oy]) => ({ x: x + ox, y: y + oy }))
+        .filter((p) => p.x - box.w / 2 >= plot.left - 4 && p.x + box.w / 2 <= plot.right + MARGIN.right - 4 && p.y - 8 >= plot.top && p.y + 8 <= plot.bottom);
+      const spot = clearSpot(spots, box, obstacles, 4) ?? { x: x - dx, y: y - 16 };
+      // The value's box is an obstacle for the next value.
+      const [l, r, t, b] = [spot.x - box.w / 2, spot.x + box.w / 2, spot.y - box.h / 2, spot.y + box.h / 2];
+      obstacles.push([[l, t], [r, t], [r, b], [l, b], [l, t]]);
+      return { m, x, y, text, spot };
+    });
+    for (const { m, x, y, text, spot } of placed) {
+      svgEl("text", { class: "eff-value", x: px(spot.x), y: px(spot.y), "text-anchor": "middle", "dominant-baseline": "central", text }, layer.labels);
       const drag = dragTarget(m.key);
       const circle = svgEl("circle", { class: `eff-marker${drag ? " draggable" : ""}`, cx: px(x), cy: px(y), r: 6, style: `fill:${paint(m.key)}` }, layer.markers);
       markers.push({ key: m.key, x, y, drag, circle });
-    });
+    }
 
     // Hover crosshair (positioned on pointer move).
     hover = {
@@ -149,7 +159,9 @@ export function createEfficiencyView(container, { actions }) {
 
     // Text alternative: the current value(s).
     const said = ms.map((m) => `${model.mode === "compare" ? `cycle ${m.key.toUpperCase()}: ` : ""}r = ${formatValue("ratio", m.r)}, efficiency ${formatValue("eta", m.eta)}`);
-    titleEl.textContent = `Thermal efficiency against compression ratio. ${said.join("; ")}`;
+    const label = `Thermal efficiency against compression ratio. ${said.join("; ")}`;
+    titleEl.textContent = label;
+    svg.setAttribute("aria-label", label);
   }
 
   // What dragging a marker changes, or null when its r is not free.

@@ -7,7 +7,7 @@ import { defaultState, defaultValues, CYCLES, TIMING, PARAMS, SHARED } from "./s
 import {
   buildModel, phaseOf, framesAt, nextBoundary, previousStart, advancePhase,
 } from "./core/model.js";
-import { createHeader } from "./ui/header.js";
+import { createHeader, darkQuery, isDark } from "./ui/header.js";
 import { createEngineView } from "./ui/engineView.js";
 import { createDiagramView } from "./ui/diagramView.js";
 import { createTransport } from "./ui/transport.js";
@@ -21,7 +21,12 @@ import { createEfficiencyView } from "./ui/efficiencyView.js";
 import { createCompareView } from "./ui/compareView.js";
 import { cardSteps, playheadCard, validCard, processStart, cardPhase } from "./core/steps.js";
 
-const store = createStore(defaultState());
+// A theme chosen earlier with the header toggle was applied by index.html before the page drew.
+const initialState = defaultState();
+const savedTheme = document.documentElement.dataset.theme;
+if (savedTheme === "light" || savedTheme === "dark") initialState.options.theme = savedTheme;
+
+const store = createStore(initialState);
 let model = buildModel(store.get());
 let phase = phaseOf(model, store.get().playback);
 let pendingStops = 0; // "next process": states still to reach before stopping (each press adds one)
@@ -124,6 +129,21 @@ const actions = {
   },
   setOption(key, value) {
     store.merge("options", { [key]: value });
+  },
+  // Focus view (SPEC section 4): the stage fills the viewport, text about 25 % larger.
+  toggleFocus() {
+    store.merge("options", { focus: !store.get().options.focus });
+  },
+  // The header toggle picks the opposite of the theme on screen, whatever the OS says, and is
+  // remembered for the next visit.
+  toggleTheme() {
+    const theme = isDark(store.get().options.theme) ? "light" : "dark";
+    try {
+      localStorage.setItem("ic-cycles-theme", theme);
+    } catch {
+      // storage blocked: the choice lasts for this visit only
+    }
+    store.merge("options", { theme });
   },
   // ---- process card (SPEC section 10)
   // Guided tour: back to state 1, "Pause at each state" on, the intro showing.
@@ -289,6 +309,10 @@ document.addEventListener("keydown", (e) => {
     case "Home":
       actions.restart();
       break;
+    case "f":
+    case "F":
+      actions.toggleFocus();
+      break;
     case "1":
     case "2":
     case "3":
@@ -298,6 +322,14 @@ document.addEventListener("keydown", (e) => {
       return;
   }
   e.preventDefault();
+});
+
+// The OS switching between light and dark: the views that read colors from the tokens (the
+// gas color ramp) draw again. A theme picked with the toggle ignores this.
+darkQuery.addEventListener("change", () => {
+  const st = store.get();
+  for (const v of views) v.render(model, st);
+  show(st);
 });
 
 // ------------------------------------------------------------------------------ start

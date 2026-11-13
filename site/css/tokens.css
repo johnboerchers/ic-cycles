@@ -1,9 +1,11 @@
 /* Design tokens (SPEC section 16). Code refers to these names, never to raw colors.
-   Light theme only for now; the dark values are added with the theme switch in M7.
-   The four process colors were checked together for color-vision-deficiency separation:
+   Light theme first; the dark values follow the OS setting unless the header toggle has chosen
+   a theme (<html data-theme="light|dark">), which wins both ways. The four process colors were checked together for color-vision-deficiency separation:
    do not substitute other hues. Text never uses a process color. */
 
 :root {
+  color-scheme: light;
+
   /* surfaces and ink */
   --page: #f9f9f7;
   --surface: #fcfcfb;
@@ -40,8 +42,12 @@
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --text-xs: 11px;
   --text-sm: 12px;
+  --text-label: 13px; /* state labels, panel titles */
   --text-md: 14px;
   --text-lg: 16px;
+  --text-value: 18px; /* engine readouts */
+  --text-sub: 10px; /* subscripts in SVG text */
+  --ui-scale: 1; /* focus view sets 1.25; the SVG views size their margins with it */
   --radius: 8px;
   --radius-sm: 4px;
   --space-1: 4px;
@@ -50,4 +56,71 @@
   --space-4: 16px;
   --space-6: 24px;
   --focus-ring: 2px solid var(--ink);
+}
+
+/* Dark theme: the same roles with the dark column of SPEC section 16. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --role-compression: #3987e5;
+    --role-heatAdditionV: #d95926;
+    --role-heatAdditionP: #d95926;
+    --role-expansion: #199e70;
+    --role-heatRejection: #c98500;
+    --compare-a: #3987e5;
+    --compare-b: #d95926;
+    --gas-250: #3b2922;
+    --gas-600: #5a3021;
+    --gas-1000: #7c3a20;
+    --gas-1400: #a4451f;
+    --gas-1800: #cb521f;
+    --gas-2300: #ee6b37;
+    --gas-2800: #fe936c;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --role-compression: #3987e5;
+  --role-heatAdditionV: #d95926;
+  --role-heatAdditionP: #d95926;
+  --role-expansion: #199e70;
+  --role-heatRejection: #c98500;
+  --compare-a: #3987e5;
+  --compare-b: #d95926;
+  --gas-250: #3b2922;
+  --gas-600: #5a3021;
+  --gas-1000: #7c3a20;
+  --gas-1400: #a4451f;
+  --gas-1800: #cb521f;
+  --gas-2300: #ee6b37;
+  --gas-2800: #fe936c;
+}
+
+/* Focus view (lecture mode): text in the stage and transport about 25 % larger. */
+body.focus {
+  --text-xs: 14px;
+  --text-sm: 15px;
+  --text-label: 16px;
+  --text-md: 17.5px;
+  --text-lg: 20px;
+  --text-value: 22px;
+  --text-sub: 12.5px;
+  --ui-scale: 1.25;
 }

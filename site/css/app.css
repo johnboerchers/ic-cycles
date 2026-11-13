@@ -1,7 +1,7 @@
 /* Page layout and components. Colors and sizes come from tokens.css.
    Desktop and projector layout (SPEC section 4): header, stage row (engine, P–v, T–s),
    transport bar, then the panels. Everything down to the transport bar fits in 1366 x 768.
-   The narrower layouts arrive in M7. */
+   The tablet (700–1099 px), phone (< 700 px) and focus layouts are at the end of the file. */
 
 *,
 *::before,
@@ -49,11 +49,12 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  height: 52px;
+  min-height: 52px;
   padding: 0 var(--space-4);
 }
 
 .app-title {
+  white-space: nowrap;
   font-size: 17px;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -116,7 +117,7 @@ button {
 }
 
 .panel-title {
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   line-height: 20px;
   color: var(--ink-2);
@@ -242,7 +243,7 @@ button {
 }
 
 .engine .energy-label .sub {
-  font-size: 10px;
+  font-size: var(--text-sub);
 }
 
 .engine .gas-label {
@@ -271,7 +272,7 @@ button {
 
 .readout dd {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--text-value);
   font-weight: 550;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -333,7 +334,7 @@ button {
 }
 
 .diagram .state-label {
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   fill: var(--ink);
 }
@@ -631,7 +632,7 @@ button {
 }
 
 .diagram .axis-title .sub {
-  font-size: 10px;
+  font-size: var(--text-sub);
 }
 
 .diagram .strip-wall,
@@ -1462,12 +1463,12 @@ sub {
 }
 
 .diagram .loop-label {
-  font-size: 13px;
+  font-size: var(--text-label);
   fill: var(--ink);
 }
 
 .diagram .loop-label .sub {
-  font-size: 10px;
+  font-size: var(--text-sub);
 }
 
 /* The intake and exhaust strokes on P–v: muted ink, dashed (SPEC section 16). */
@@ -1571,7 +1572,7 @@ body[data-mode="compare"] .stage {
 }
 
 .engine .side-label {
-  font-size: 13px;
+  font-size: var(--text-label);
   font-weight: 600;
   fill: var(--ink);
 }
@@ -1593,7 +1594,7 @@ body[data-mode="compare"] .stage {
 }
 
 .readouts.two .readout dd {
-  font-size: 15px;
+  font-size: calc(var(--text-value) - 3px);
 }
 
 /* Efficiency chart */
@@ -1844,4 +1845,463 @@ body[data-mode="compare"] .stage {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+/* ------------------------------------------------------------ M7: footer, theme, a11y */
+
+.stage-top {
+  display: contents; /* the engine and P–v panels are stage columns; a block of its own on a phone */
+}
+
+.app-footer {
+  padding: 0 var(--space-4) var(--space-6);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.app-footer p {
+  max-width: 80ch;
+  margin: 0;
+}
+
+.link-btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.link-btn.icon-only {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+}
+
+.link-btn.icon-only svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.link-btn.icon-only[aria-pressed="true"] {
+  background: transparent;
+  color: var(--ink);
+}
+
+.link-btn.icon-only[aria-pressed="true"]:hover {
+  background: var(--grid);
+}
+
+/* Controls the browser draws itself (sliders, number boxes, selects) follow the theme through
+   color-scheme in tokens.css; the dialog backdrop darkens either theme. */
+.info-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Motion is functional only (SPEC section 16): no transitions under reduced motion. The glow and
+   spark are dropped in engineView.js; the piston and the state point still move on play. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Touch screens: tap targets at least 40 px (SPEC section 17). */
+@media (pointer: coarse) {
+  .segmented button,
+  .segmented.small button,
+  .link-btn,
+  .chip-btn,
+  .text-btn,
+  .card-btn,
+  .dialog-close,
+  .compare-type select {
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .link-btn.icon-only {
+    width: 40px;
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .icon-btn.play {
+    width: 46px;
+    height: 46px;
+  }
+
+  .switch,
+  .compare-hold .radio {
+    min-height: 40px;
+  }
+
+  .card-dots .dot {
+    width: 40px;
+    height: 40px;
+  }
+
+  .param {
+    min-height: 44px;
+  }
+
+  .param .num {
+    height: 40px;
+    font-size: 16px; /* 16 px keeps phones from zooming into the box */
+  }
+
+  .param input[type="range"] {
+    height: 40px;
+  }
+}
+
+/* ------------------------------------------------------------ M7: focus view (lecture) */
+
+/* The stage fills the viewport under the header and above the transport bar; everything below
+   the transport bar is hidden. Text is larger through the tokens (tokens.css, body.focus). */
+body.focus {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+body.focus .app {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding-bottom: var(--space-3);
+}
+
+body.focus .stage {
+  grid-template-columns: 26fr 37fr 37fr; /* the engine's labels are larger too */
+  height: auto;
+  min-height: 320px;
+}
+
+body.focus[data-mode="compare"] .stage {
+  grid-template-columns: 32fr 34fr 34fr;
+}
+
+body.focus .lower,
+body.focus .app-footer {
+  display: none;
+}
+
+body.focus .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
+body.focus .icon-btn.play {
+  width: 54px;
+  height: 54px;
+}
+
+body.focus .icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+body.focus .switch.small {
+  font-size: var(--text-sm);
+}
+
+body.focus .segmented.small button {
+  height: 32px;
+}
+
+/* ------------------------------------------------------------ M7: tablet, 700–1099 px */
+
+/* Engine and P–v on the first row, T–s on the second, panels in two columns (SPEC section 4). */
+@media (max-width: 1099px) {
+  .stage,
+  body[data-mode="compare"] .stage,
+  body.focus .stage,
+  body.focus[data-mode="compare"] .stage {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .stage-top {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--space-2);
+    height: clamp(340px, 46vh, 560px);
+  }
+
+  body[data-mode="compare"] .stage-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  #ts-panel {
+    height: clamp(280px, 36vh, 460px);
+  }
+
+  .transport {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+
+  .transport .timeline {
+    order: 5;
+    flex: 1 1 100%;
+  }
+
+  .transport-options {
+    margin-left: auto;
+  }
+
+  .lower {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Compare mode: the key gets its own row under the diagram's title. */
+  .panel-head {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .compare-key {
+    order: 3;
+    flex-wrap: wrap;
+    gap: 0 var(--space-3);
+    margin-left: 0;
+  }
+
+  .compare-table th,
+  .compare-table td {
+    padding: 3px var(--space-1);
+  }
+
+  /* Wide tables and the energy grid scroll sideways inside their panel, never the page. */
+  #states-panel,
+  #compare-results-panel {
+    overflow-x: auto;
+  }
+
+  /* Focus view keeps the two rows and shares the height between them. */
+  body.focus .stage {
+    grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  body.focus .stage-top,
+  body.focus #ts-panel {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* ------------------------------------------------------------ M7: phone, below 700 px */
+
+/* Engine (a third) and P–v side by side in a block that sticks to the top, T–s under it, the
+   transport bar sticking to the bottom, panels stacked (SPEC section 4). */
+@media (max-width: 699px) {
+  .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    padding: var(--space-2);
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+
+  .app-title {
+    grid-area: 1 / 1;
+    align-self: center;
+  }
+
+  .header-links {
+    grid-area: 1 / 2;
+    gap: 0;
+  }
+
+  #cycle-select {
+    grid-area: 2 / 1;
+    justify-self: start;
+  }
+
+  #focus-btn {
+    display: none; /* the lecture view is for a projector */
+  }
+
+  .segmented button {
+    min-width: 0;
+    padding: 0 var(--space-2);
+  }
+
+  #mode-select {
+    grid-area: 2 / 2;
+    justify-self: end;
+  }
+
+  .app {
+    padding: 0 var(--space-2) var(--space-4);
+  }
+
+  .stage {
+    display: contents;
+  }
+
+  .stage-top {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 6px;
+    height: clamp(240px, 36vh, 330px);
+    /* the page color behind the block covers what scrolls under it */
+    margin: 0 calc(-1 * var(--space-2));
+    padding: 6px var(--space-2) 0;
+    background: var(--page);
+    box-shadow: 0 6px 0 var(--page);
+  }
+
+  .stage-panel {
+    padding: 6px 6px var(--space-2);
+  }
+
+  #ts-panel {
+    height: clamp(240px, 34vh, 340px);
+  }
+
+  /* Engine readouts as three short lines; the caption is left out to give the drawing room. */
+  #engine-panel .readout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    margin-top: var(--space-1);
+    padding-top: var(--space-1);
+  }
+
+  #engine-panel .readout div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-1);
+  }
+
+  #engine-panel .readout div {
+    flex-wrap: wrap;
+  }
+
+  #engine-panel .readout dd {
+    margin-left: auto;
+  }
+
+  #engine-panel .readout dt {
+    font-size: var(--text-xs);
+  }
+
+  #engine-panel .readout dd,
+  #engine-panel .readouts.two .readout dd {
+    font-size: 13px;
+  }
+
+  #engine-panel .readouts.two {
+    gap: var(--space-2);
+  }
+
+  #engine-panel .engine-caption {
+    display: none;
+  }
+
+  /* Last in the page grid, so that sticking to the bottom holds it there all the way down. */
+  .transport {
+    order: 1;
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    gap: var(--space-1) var(--space-3);
+    padding: 6px var(--space-2);
+    box-shadow: 0 6px 0 var(--page);
+  }
+
+  .transport-buttons {
+    gap: 0;
+  }
+
+  .transport .timeline {
+    order: 0;
+    flex: 1 1 120px;
+    min-width: 120px;
+  }
+
+  .tl-label {
+    font-size: var(--text-xs);
+  }
+
+  .speed {
+    order: 1;
+  }
+
+  .speed .control-label {
+    display: none;
+  }
+
+  /* The switches share the second row with the speed, scrolling sideways when they do not fit. */
+  .transport-options {
+    order: 2;
+    flex: 1 1 0;
+    flex-direction: row;
+    gap: var(--space-4);
+    min-width: 0;
+    margin-left: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .transport-options .switch {
+    flex: none;
+  }
+
+  .lower {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-footer {
+    padding: 0 var(--space-2) var(--space-4);
+  }
+
+  /* Compare mode: no key on P–v, which sits beside the engines and their own A and B
+     labels. */
+  #pv-panel .compare-key {
+    display: none;
+  }
+
+  /* Focus view on a phone only hides the panels: the page keeps scrolling as usual. */
+  body.focus {
+    display: block;
+    height: auto;
+  }
+
+  body.focus .app {
+    grid-template-rows: none;
+  }
+
+  body.focus .stage-top {
+    height: clamp(240px, 36vh, 330px);
+  }
+}
+
+/* A title next to a control never breaks; the control or the compare key wraps instead. */
+.panel-head {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.panel-head .panel-title {
+  white-space: nowrap;
+}
+
+.panel-head .switch {
+  margin-left: auto;
 }

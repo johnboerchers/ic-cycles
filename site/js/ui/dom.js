@@ -1,5 +1,7 @@
 // Small helpers for building DOM and SVG in the views.
 
+import { TIMING } from "../state/defaults.js";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function setAttrs(node, attrs) {
@@ -80,3 +82,24 @@ export function symbolHtml(parent, symbol, sub) {
   if (sub) htmlEl("sub", { text: sub }, parent);
   return parent;
 }
+
+// Keeps an element's aria-label describing what it shows now. While playing it is rewritten at
+// most every TIMING.ariaIntervalMs (SPEC section 17); `make` builds the text only when it is due.
+export function ariaLabeler(node) {
+  let last = -Infinity;
+  let text = null;
+  return (make, playing) => {
+    const now = performance.now();
+    if (playing && now - last < TIMING.ariaIntervalMs) return;
+    last = now;
+    const t = make();
+    if (t !== text) {
+      node.setAttribute("aria-label", t);
+      text = t;
+    }
+  };
+}
+
+// The text scale of the view (1, or 1.25 in focus view; tokens.css --ui-scale), for pixel
+// margins that hold text.
+export const uiScale = (node) => Number(getComputedStyle(node).getPropertyValue("--ui-scale")) || 1;

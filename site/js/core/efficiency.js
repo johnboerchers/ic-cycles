@@ -121,3 +121,36 @@ export function spreadLabels(ys, gap, lo = -Infinity, hi = Infinity) {
 
 // Ratios and k in labels as typed: "1.4", "2", "1.667".
 const num = (x) => formatValue("ratio", x);
+
+// Where to put a label: the first of the candidate spots (label centers) whose box of size
+// { w, h } keeps at least `margin` px from every polyline, or else the spot with the most room.
+// Used for the marker values, which must not sit on a curve (two curves in compare mode).
+export function clearSpot(spots, box, polylines, margin) {
+  let best = null;
+  for (const spot of spots) {
+    const room = clearance(spot, box, polylines);
+    if (room >= margin) return spot;
+    if (!best || room > best.room) best = { spot, room };
+  }
+  return best ? best.spot : null;
+}
+
+// Smallest distance from a box centered at (x, y) to the polylines, sampling each segment
+// every 2 px.
+function clearance({ x, y }, { w, h }, polylines) {
+  const x0 = x - w / 2;
+  const x1 = x + w / 2;
+  const y0 = y - h / 2;
+  const y1 = y + h / 2;
+  const toBox = (px, py) => Math.hypot(Math.max(x0 - px, 0, px - x1), Math.max(y0 - py, 0, py - y1));
+  let room = Infinity;
+  for (const line of polylines) {
+    for (let i = 1; i < line.length; i++) {
+      const [ax, ay] = line[i - 1];
+      const [bx, by] = line[i];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 2));
+      for (let j = 0; j <= n; j++) room = Math.min(room, toBox(ax + ((bx - ax) * j) / n, ay + ((by - ay) * j) / n));
+    }
+  }
+  return room;
+}

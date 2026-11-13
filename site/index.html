@@ -3,8 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Engine cycles</title>
-    <link rel="icon" href="data:," />
+    <title>Engine cycles: Otto, Diesel and dual</title>
+    <meta
+      name="description"
+      content="Interactive ideal Otto, Diesel and dual cycles: an animated piston–cylinder moving in step with the P–v and T–s diagrams, with equations, energy bookkeeping and efficiency curves."
+    />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M5 2h22v4H5zM5 6h3v24H5zM24 6h3v24h-3z' fill='%2352514e'/><rect x='8' y='6' width='16' height='11' fill='%23f26e3b'/><rect x='8' y='17' width='16' height='8' rx='1' fill='%23c3c2b7' stroke='%2352514e'/><path d='M14.5 25h3v6h-3z' fill='%2352514e'/></svg>" />
+    <script>
+      // The theme chosen with the header toggle, applied before the page draws (no flash).
+      try {
+        const t = localStorage.getItem("ic-cycles-theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
     <link rel="stylesheet" href="vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="css/tokens.css" />
     <link rel="stylesheet" href="css/app.css" />
@@ -25,16 +36,23 @@
       <nav class="header-links" aria-label="Reference">
         <button type="button" class="link-btn" id="symbols-btn" aria-haspopup="dialog">Symbols</button>
         <button type="button" class="link-btn" id="model-btn" aria-haspopup="dialog">Model</button>
+        <button type="button" class="link-btn" id="focus-btn" aria-pressed="false" title="Focus view for lectures (F)">Focus</button>
+        <button type="button" class="link-btn icon-only" id="theme-btn" aria-pressed="false" aria-label="Dark theme" title="Dark theme">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
+        </button>
       </nav>
     </header>
 
     <main class="app">
       <section class="stage" aria-label="Engine and diagrams">
-        <div class="panel stage-panel" id="engine-panel">
-          <h2 class="panel-title">Engine</h2>
-        </div>
-        <div class="panel stage-panel" id="pv-panel">
-          <h2 class="panel-title"><var>P</var>–<var>v</var> diagram</h2>
+        <!-- On a phone this pair sticks to the top, so the piston and the P–v point stay in view. -->
+        <div class="stage-top">
+          <div class="panel stage-panel" id="engine-panel">
+            <h2 class="panel-title">Engine</h2>
+          </div>
+          <div class="panel stage-panel" id="pv-panel">
+            <h2 class="panel-title"><var>P</var>–<var>v</var> diagram</h2>
+          </div>
         </div>
         <div class="panel stage-panel" id="ts-panel">
           <h2 class="panel-title"><var>T</var>–<var>s</var> diagram</h2>
@@ -54,5 +72,12 @@
         <div class="panel lower-panel" id="efficiency-panel"><h2 class="panel-title">Efficiency</h2></div>
       </section>
     </main>
+    <footer class="app-footer">
+      <p>
+        Ideal cold-air-standard cycles: a fixed mass of air, treated as an ideal gas with constant
+        specific heats, in internally reversible processes. Notation follows Çengel &amp; Boles,
+        <cite>Thermodynamics: An Engineering Approach</cite>.
+      </p>
+    </footer>
   </body>
 </html>

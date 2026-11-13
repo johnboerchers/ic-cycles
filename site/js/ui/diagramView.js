@@ -21,9 +21,10 @@ import { labeledStates, phaseSamples, isStroke } from "../core/model.js";
 import { nearestPhase, distanceToPolyline, labelSpot } from "../core/pick.js";
 import { energyTerms } from "../core/tables.js";
 import { colorRamp } from "../core/scale.js";
+import { describeFrame, describeState } from "../core/describe.js";
 import { GAS_RAMP_T } from "../state/defaults.js";
 import { CONTENT } from "../content/content.js";
-import { svgEl, htmlEl, symbolText, symbolHtml, px, polyline, roleColor, makeSwitch } from "./dom.js";
+import { svgEl, htmlEl, symbolHtml, px, polyline, roleColor, makeSwitch, ariaLabeler, uiScale } from "./dom.js";
 
 const KINDS = {
   pv: {
@@ -45,7 +46,7 @@ const KINDS = {
 const MARGIN = { top: 28, right: 18, bottom: 44 };
 const STRIP = { top: 52, height: 12, bottom: 88 }; // piston strip, px below the v axis
 const LABEL_GAP = 13; // state label distance from its marker, px
-const ARROW_MIN = 36; // a process shorter than this on screen gets no direction arrow, px
+const ARROW_SHORT = 24; // a process shorter than this on screen gets its arrowhead beside it, px
 const CHAR_W = 7.2; // a tabular digit at 12 px, to size labels without measuring text
 const ARROW_PATH = "M6 0L-5 -4.5L-5 4.5Z"; // direction arrowhead pointing along +x
 const RESCALE_MS = 250; // axis transition when a bound changes (SPEC section 6)
@@ -64,12 +65,10 @@ const ease = (t) => t * t * (3 - 2 * t);
 
 const UNITS = { P: "kPa", T: "K", v: "m³/kg", s: "kJ/kg·K" };
 
-let instances = 0;
 
 export function createDiagramView(container, { kind, actions }) {
   const cfg = KINDS[kind];
   const isPv = kind === "pv";
-  const uid = `diagram${++instances}`;
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   // Title row; P–v gets the log-axes switch at its right end.
@@ -84,8 +83,9 @@ export function createDiagramView(container, { kind, actions }) {
   const box = htmlEl("div", { class: "fill-box" }, container);
   // With the strokes on, P–v explains what its v axis means for an open cylinder (SPEC 14).
   const note = isPv ? htmlEl("p", { class: "diagram-note", hidden: "", text: CONTENT.strokes.note }, container) : null;
-  const svg = svgEl("svg", { class: "diagram", role: "img", "aria-labelledby": `${uid}-title` }, box);
-  svgEl("title", { id: `${uid}-title`, text: cfg.name }, svg);
+  const svg = svgEl("svg", { class: "diagram", role: "img", "aria-label": cfg.name }, box);
+  svgEl("title", { text: cfg.name }, svg);
+  const setLabel = ariaLabeler(svg);
   const tip = htmlEl("div", { class: "tooltip", role: "tooltip", hidden: "" }, box);
   // Drawing order, bottom to top.
   const layer = {};
@@ -112,6 +112,8 @@ export function createDiagramView(container, { kind, actions }) {
   let strip = null;
   let gasColor = () => "#ffffff";
   let dragging = false;
+  let ui = 1; // text scale: 1.25 in focus view; margins that hold text grow with it
+  let charW = CHAR_W;
 
   new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect;
@@ -136,6 +138,8 @@ export function createDiagramView(container, { kind, actions }) {
     gasColor = colorRamp(GAS_RAMP_T.map((T) => [T, css.getPropertyValue(`--gas-${T}`)]));
     samples = model.cycles.map((c) => phaseSamples(c));
     size = { w: box.clientWidth, h: box.clientHeight };
+    ui = uiScale(container);
+    charW = CHAR_W * ui;
 
     const next = cfg.bounds(model.bounds, log);
     if (modeChanged || !shown || reduceMotion.matches) {
@@ -199,9 +203,9 @@ export function createDiagramView(container, { kind, actions }) {
     const xt = tickSet(...target[0], bx);
     const yt = tickSet(...target[1], by);
     const withStrip = cfg.canLog && !log && !compare;
-    const left = Math.round(Math.max(44, 16 + CHAR_W * Math.max(...yt.map((d) => d.label.length))));
-    const bottom = size.h - (withStrip ? STRIP.bottom : MARGIN.bottom);
-    plot = { left, right: size.w - MARGIN.right, top: MARGIN.top, bottom };
+    const left = Math.round(Math.max(44 * ui, 16 + charW * Math.max(...yt.map((d) => d.label.length))));
+    const bottom = size.h - ui * (withStrip ? STRIP.bottom : MARGIN.bottom);
+    plot = { left, right: size.w - MARGIN.right, top: ui * MARGIN.top, bottom };
     const scale = log ? logScale : linear;
     sx = scale(bx, [plot.left, plot.right]);
     sy = scale(by, [plot.bottom, plot.top]);
@@ -212,11 +216,17 @@ export function createDiagramView(container, { kind, actions }) {
   }
 
   function drawAxes(bx, by, xt, yt, withStrip) {
-    for (const { v, label } of xt) {
+    // On a narrow plot (a phone) only every second or third x tick is labeled, so the numbers
+    // never run together; every tick keeps its grid line.
+    const spacing = xt.length > 1 ? Math.abs(sx(xt[1].v) - sx(xt[0].v)) : Infinity;
+    const widest = charW * Math.max(...xt.map((d) => d.label.length));
+    const every = Math.max(1, Math.ceil((widest + 8) / spacing));
+    xt.forEach(({ v, label }, i) => {
       const x = sx(v);
       if (Math.abs(x - plot.left) > 0.5) svgEl("line", { class: "grid-line", x1: crisp(x), x2: crisp(x), y1: plot.top, y2: plot.bottom }, layer.grid);
-      svgEl("text", { class: "tick-label", x: px(x), y: plot.bottom + 17, "text-anchor": "middle", "dominant-baseline": "central", text: label }, layer.axes);
-    }
+      if (i % every) return;
+      svgEl("text", { class: "tick-label", x: px(x), y: px(plot.bottom + 17 * ui), "text-anchor": "middle", "dominant-baseline": "central", text: label }, layer.axes);
+    });
     for (const { v, label } of yt) {
       const y = sy(v);
       if (Math.abs(y - plot.bottom) > 0.5) svgEl("line", { class: "grid-line", x1: plot.left, x2: plot.right, y1: crisp(y), y2: crisp(y) }, layer.grid);
@@ -224,9 +234,9 @@ export function createDiagramView(container, { kind, actions }) {
     }
     svgEl("line", { class: "axis-line", x1: crisp(plot.left), x2: crisp(plot.left), y1: plot.top, y2: plot.bottom + 0.5 }, layer.axes);
     svgEl("line", { class: "axis-line", x1: plot.left, x2: plot.right, y1: crisp(plot.bottom), y2: crisp(plot.bottom) }, layer.axes);
-    axisTitle({ x: plot.left, y: plot.top - 14, "text-anchor": "middle" }, cfg.y.title);
+    axisTitle({ x: plot.left, y: px(plot.top - 14 * ui), "text-anchor": "middle" }, cfg.y.title);
     // A little lower above the strip, clear of the value badge on the tick row.
-    axisTitle({ x: plot.right, y: plot.bottom + (withStrip ? 41 : 37), "text-anchor": "end" }, cfg.x.title);
+    axisTitle({ x: plot.right, y: px(plot.bottom + ui * (withStrip ? 41 : 37)), "text-anchor": "end" }, cfg.x.title);
   }
 
   // An axis title from parts [text, italic, subscript].
@@ -268,13 +278,27 @@ export function createDiagramView(container, { kind, actions }) {
     const st = solution.states;
     const line = isPv && strokes ? drawStrokeLine(st) : null;
 
-    // One curve per process in its role color, with an arrowhead at its middle.
+    // One curve per process in its role color, with an arrowhead at its middle. A process too
+    // short to hold one (4→1 of a low Otto cycle on linear axes) gets a smaller arrowhead just
+    // inside the loop beside its middle; the state labels are outside.
+    const all = drawn.flatMap((p) => screen[p.id]);
+    const mx = all.reduce((a, q) => a + q[0], 0) / all.length;
+    const my = all.reduce((a, q) => a + q[1], 0) / all.length;
     for (const p of drawn) {
       svgEl("path", { class: `curve${dashed}`, d: polyline(screen[p.id]), style: `stroke:${paint(cycle, p.role)}` }, layer.curves);
       const mid = midpoint(screen[p.id]);
-      if (mid) {
-        svgEl("path", { d: ARROW_PATH, transform: `translate(${px(mid.x)} ${px(mid.y)}) rotate(${px(mid.angle)})`, style: `fill:${paint(cycle, p.role)}` }, layer.arrows);
+      if (!mid) continue;
+      let { x, y } = mid;
+      let k = 1;
+      if (mid.length < ARROW_SHORT) {
+        const a = (mid.angle * Math.PI) / 180;
+        let [nx, ny] = [-Math.sin(a), Math.cos(a)];
+        if (nx * (x - mx) + ny * (y - my) > 0) [nx, ny] = [-nx, -ny];
+        x += 9 * nx;
+        y += 9 * ny;
+        k = 0.75;
       }
+      svgEl("path", { d: ARROW_PATH, transform: `translate(${px(x)} ${px(y)}) rotate(${px(mid.angle)}) scale(${k})`, style: `fill:${paint(cycle, p.role)}` }, layer.arrows);
     }
 
     // State markers and labels at the corners of the loop, the labels pushed away from it.
@@ -290,13 +314,33 @@ export function createDiagramView(container, { kind, actions }) {
     // and labeled once, and the same state of the two cycles close together on screen (state 3
     // at the same peak pressure) gets one label for both.
     const near = (c, dist) => items.some((it) => it.corners.some((o) => o.name === c.name && Math.hypot(o.x - c.x, o.y - c.y) < dist));
+    const placed = []; // label centers so far, to keep two labels from overlapping
+    const lw = 9 * ui; // a label's box, about one character
+    const lh = 15 * ui;
     for (const c of corners) {
       if (near(c, 1)) continue;
       svgEl("circle", { class: "marker", cx: px(c.x), cy: px(c.y), r: 4 }, layer.markers);
       if (near(c, 2 * LABEL_GAP)) continue;
-      const [dx, dy] = outward(c, alongFromEnd(c.before), alongFromStart(c.after), cx, cy);
-      const lx = clamp(c.x + dx * LABEL_GAP, plot.left + 8, plot.right - 4);
-      const ly = clamp(c.y + dy * LABEL_GAP, plot.top + 6, plot.bottom - 7);
+      let [dx, dy] = outward(c, alongFromEnd(c.before), alongFromStart(c.after), cx, cy);
+      let gap = LABEL_GAP;
+      // A top corner close to the P (or T) axis is labeled straight above its marker, clear of
+      // the value badge that runs along that axis (state 2 of Diesel, state x of dual), and a
+      // little higher, clear of the state point when it stops there.
+      // With no room above (the corner at the top of the axis) it keeps its first place, which
+      // the clamp below keeps inside the plot, right of the badge.
+      if (dy < 0 && dx < 0 && c.x - plot.left < 40 * ui && c.y - (LABEL_GAP + 3) * ui >= plot.top + 6) {
+        [dx, dy, gap] = [0, -1, LABEL_GAP + 3];
+      }
+      const lx = clamp(c.x + dx * gap * ui, plot.left + 8, plot.right - 4);
+      // Labels may use the top margin, except next to the axis, where its title is.
+      const top = lx - plot.left < 40 * ui ? plot.top + 6 : plot.top - 6;
+      let ly = clamp(c.y + dy * gap * ui, top, plot.bottom - 7);
+      // Two corners close together (4 and 1 when heat rejection is short): move this label
+      // up or down until it clears the ones already placed.
+      for (const o of placed) {
+        if (Math.abs(o.x - lx) < lw && Math.abs(o.y - ly) < lh) ly = ly >= o.y ? o.y + lh : o.y - lh;
+      }
+      placed.push({ x: lx, y: ly });
       svgEl("text", { class: "state-label", x: px(lx), y: px(ly), "text-anchor": "middle", "dominant-baseline": "central", text: c.name }, layer.labels);
     }
 
@@ -361,7 +405,7 @@ export function createDiagramView(container, { kind, actions }) {
   // the piston face at the current volume, and ticks at TDC (v2) and BDC (v1).
   function drawStrip(cycle) {
     const st = cycle.solution.states;
-    const y0 = plot.bottom + STRIP.top;
+    const y0 = plot.bottom + ui * STRIP.top;
     const y1 = y0 + STRIP.height;
     const x0 = sx(0);
     const xBdc = sx(st["1"].v);
@@ -381,7 +425,7 @@ export function createDiagramView(container, { kind, actions }) {
 
   function badge() {
     const g = svgEl("g", { class: "badge" }, layer.badges);
-    const rect = svgEl("rect", { height: 20, rx: 4, y: -10 }, g);
+    const rect = svgEl("rect", { height: px(20 * ui), rx: 4, y: px(-10 * ui) }, g);
     const text = svgEl("text", { "text-anchor": "middle", "dominant-baseline": "central", y: 0.5 }, g);
     return { g, rect, text, shown: null };
   }
@@ -390,7 +434,7 @@ export function createDiagramView(container, { kind, actions }) {
   function setBadge(b, value, x, y, anchor) {
     if (b.shown !== value) {
       b.text.textContent = value;
-      b.w = Math.round(CHAR_W * value.length + 12);
+      b.w = Math.round(charW * value.length + 12);
       b.rect.setAttribute("width", b.w);
       b.rect.setAttribute("x", -b.w / 2);
       b.shown = value;
@@ -442,10 +486,18 @@ export function createDiagramView(container, { kind, actions }) {
       }
 
       if (it.badgeX) {
-        setBadge(it.badgeX, formatValue(cfg.x.key, valueX), x, plot.bottom + 17, "middle");
+        setBadge(it.badgeX, formatValue(cfg.x.key, valueX), x, plot.bottom + 17 * ui, "middle");
         setBadge(it.badgeY, formatValue(cfg.y.key, valueY), plot.left - 5, clamp(y, plot.top - 8, plot.bottom + 8), "end");
       }
     });
+
+    // The text alternative: where each cycle is and the state point's values (SPEC section 17).
+    if (model) {
+      setLabel(() => {
+        const each = model.cycles.map((c, i) => `${describeFrame(c, frames[i])}; ${describeState(frames[i].state, [cfg.y.key, cfg.x.key])}`);
+        return `${cfg.name}. ${each.join(". ")}`;
+      }, state.playback.playing);
+    }
 
     if (strip) {
       const f = frames[0];
@@ -598,7 +650,8 @@ function setLine(line, x1, y1, x2, y2) {
   line.setAttribute("y2", px(y2));
 }
 
-// Position and direction (degrees) halfway along a polyline, or null when it is too short.
+// Position, direction (degrees) and the polyline's length halfway along it, or null when it has
+// no length.
 function midpoint(poly) {
   const lens = [];
   let total = 0;
@@ -607,14 +660,14 @@ function midpoint(poly) {
     lens.push(l);
     total += l;
   }
-  if (total < ARROW_MIN) return null;
+  if (total < 1) return null;
   let rest = total / 2;
   for (let i = 0; i < lens.length; i++) {
     if (rest <= lens[i] && lens[i] > 0) {
       const t = rest / lens[i];
       const [x0, y0] = poly[i];
       const [x1, y1] = poly[i + 1];
-      return { x: x0 + t * (x1 - x0), y: y0 + t * (y1 - y0), angle: (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI };
+      return { x: x0 + t * (x1 - x0), y: y0 + t * (y1 - y0), angle: (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI, length: total };
     }
     rest -= lens[i];
   }
