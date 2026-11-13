@@ -11,7 +11,7 @@ open and look at.
 - [x] M3 Interactivity: parameters, results, T–s, dragging, state table
 - [x] M4 Guided step-through and equations
 - [x] M5 Energy bookkeeping, area shading, intake and exhaust strokes
-- [ ] M6 Efficiency curves and compare mode
+- [x] M6 Efficiency curves and compare mode
 - [ ] M7 Polish and publish
 
 ## For the instructor: how to run this
@@ -367,6 +367,20 @@ From this point a push to `main` goes straight to students: see CLAUDE.md, "Git"
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M6 (efficiency, compare).** Checked at 1366 × 768: every item of the list, numbers exact. The
+  browser pane was hidden, which stops `requestAnimationFrame`; playback was watched through the
+  real clock with rAF swapped for a 16 ms timer from the console. New tested core: `efficiency.js`
+  (curves, `spreadLabels`) and `buildCompareModel`/compare `timelineSegments` in `model.js`.
+- Ratios follow PHYSICS 11 (up to 3 decimals), so the plan's "r = 9.81 / 20.79" reads 9.807 / 20.793.
+  The bold efficiency curve is ink ("primary color" has no token). In compare mode a curve holds
+  q_in and the heat split fixed as r varies (own parameters under "Nothing"); markers drag r only
+  where r is free.
+- Readings chosen for compare: no drop-lines or axis badges (two sets cover each other; engine
+  readouts give the numbers); the shading switch is hidden with the strokes switch; the cycle
+  selector and keys 1–3 are disabled; T₁, P₁, k come from Explore; a type change resets that
+  side's own parameters to the type's defaults. Stage columns become 30/35/35; each engine drops
+  its thermometer. Same-named states closer than 26 px get one label (state 3 at equal P_max).
 
 - **M5 (energy, shading, strokes).** Checked at 1366 × 768: every item of the list, numbers exact,
   and the `\val` correction (Otto 3→4 `731.0`, v₁ `0.8610`, dual `65.0\%`). `formatTex` takes

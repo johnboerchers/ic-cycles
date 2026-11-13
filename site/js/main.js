@@ -3,7 +3,7 @@
 // tick(frames, state) on every animation frame and every scrub.
 
 import { createStore } from "./state/store.js";
-import { defaultState, CYCLES, TIMING, PARAMS, SHARED } from "./state/defaults.js";
+import { defaultState, defaultValues, CYCLES, TIMING, PARAMS, SHARED } from "./state/defaults.js";
 import {
   buildModel, phaseOf, framesAt, nextBoundary, previousStart, advancePhase,
 } from "./core/model.js";
@@ -17,6 +17,8 @@ import { createStateTable } from "./ui/stateTable.js";
 import { createProcessCard } from "./ui/processCard.js";
 import { createEnergyView } from "./ui/energyView.js";
 import { createInfoDialogs } from "./ui/infoDialogs.js";
+import { createEfficiencyView } from "./ui/efficiencyView.js";
+import { createCompareView } from "./ui/compareView.js";
 import { cardSteps, playheadCard, validCard, processStart, cardPhase } from "./core/steps.js";
 
 const store = createStore(defaultState());
@@ -29,12 +31,13 @@ let lastTime = null;
 const timeline = () => model.cycles[0].timeline;
 
 // Moves the playhead to a phase; it is stored as slot and tau (PHYSICS.md section 6). The
-// process card follows: inside a process it shows that process (core/steps.js).
+// process card follows: inside a process it shows that process (core/steps.js). Compare mode
+// has no process card, so the card is left as it was for the return to Explore.
 function setPhase(u, patch = {}) {
   const st = store.get();
   const [f] = framesAt(model, u);
   const playback = { ...st.playback, slot: f.slot, tau: f.tau, ...patch };
-  const card = playheadCard(f, st.card);
+  const card = st.mode === "compare" ? st.card : playheadCard(f, st.card);
   store.set(card === st.card ? { playback } : { playback, card });
 }
 
@@ -72,7 +75,36 @@ const actions = {
     store.merge("options", { pauseAtStates: on });
   },
   selectCycle(cycle) {
-    if (cycle !== store.get().cycle) store.set({ cycle });
+    const st = store.get();
+    if (st.mode === "explore" && cycle !== st.cycle) store.set({ cycle });
+  },
+  // Explore or Compare. The playhead keeps its slot and tau, like a parameter change.
+  setMode(mode) {
+    if (mode !== store.get().mode) store.set({ mode });
+  },
+  // ---- compare mode (SPEC section 15)
+  setCompareConstraint(constraint) {
+    const { compare } = store.get();
+    if (compare.constraint !== constraint) store.set({ compare: { ...compare, constraint } });
+  },
+  setCompareShared(key, value) {
+    const { compare } = store.get();
+    if (compare.shared[key] !== value) store.set({ compare: { ...compare, shared: { ...compare.shared, [key]: value } } });
+  },
+  // A side's type; its own parameters start from that type's defaults.
+  setCompareType(side, type) {
+    const { compare } = store.get();
+    if (compare[side].type === type) return;
+    store.set({ compare: { ...compare, [side]: { ...compare[side], type, params: defaultValues(PARAMS[type]) } } });
+  },
+  setCompareXv(side, xv) {
+    const { compare } = store.get();
+    if (compare[side].xv !== xv) store.set({ compare: { ...compare, [side]: { ...compare[side], xv } } });
+  },
+  setCompareParam(side, key, value) {
+    const { compare } = store.get();
+    const s = compare[side];
+    if (s.params[key] !== value) store.set({ compare: { ...compare, [side]: { ...s, params: { ...s.params, [key]: value } } } });
   },
   // A parameter of the current cycle ("params") or a shared one ("shared": T1, P1, k). The
   // playhead keeps its slot and tau, so a paused piston stays where it is (SPEC section 8).
@@ -88,8 +120,7 @@ const actions = {
   // Reset restores every value in the panel: the current cycle's parameters and T1, P1, k.
   resetParams() {
     const st = store.get();
-    const values = (group) => Object.fromEntries(Object.entries(group).map(([k, d]) => [k, d.value]));
-    store.set({ shared: values(SHARED), params: { ...st.params, [st.cycle]: values(PARAMS[st.cycle]) } });
+    store.set({ shared: defaultValues(SHARED), params: { ...st.params, [st.cycle]: defaultValues(PARAMS[st.cycle]) } });
   },
   setOption(key, value) {
     store.merge("options", { [key]: value });
@@ -138,18 +169,29 @@ const actions = {
   },
 };
 
+// The single-cycle panels are hidden in compare mode (SPEC section 15) and sit still there; going
+// back to Explore rebuilds the model, so they are rendered again at once.
+function exploreOnly(view) {
+  return {
+    render: (m, st) => st.mode === "explore" && view.render(m, st),
+    tick: (frames, st) => st.mode === "explore" && view.tick(frames, st),
+  };
+}
+
 const views = [
   createHeader(document.getElementById("cycle-select"), actions),
   createEngineView(document.getElementById("engine-panel")),
   createDiagramView(document.getElementById("pv-panel"), { kind: "pv", actions }),
   createDiagramView(document.getElementById("ts-panel"), { kind: "ts", actions }),
   createTransport(document.getElementById("transport"), actions),
-  createParamsPanel(document.getElementById("params-panel"), actions),
-  createResultsPanel(document.getElementById("results-panel")),
-  createStateTable(document.getElementById("states-panel")),
-  createEnergyView(document.getElementById("energy-panel")),
-  createProcessCard(document.getElementById("card-panel"), actions),
+  exploreOnly(createParamsPanel(document.getElementById("params-panel"), actions)),
+  exploreOnly(createResultsPanel(document.getElementById("results-panel"))),
+  exploreOnly(createStateTable(document.getElementById("states-panel"))),
+  exploreOnly(createEnergyView(document.getElementById("energy-panel"))),
+  exploreOnly(createProcessCard(document.getElementById("card-panel"), actions)),
   createInfoDialogs(document.getElementById("symbols-btn"), document.getElementById("model-btn")),
+  createCompareView(document.getElementById("compare-panel"), { actions, results: document.getElementById("compare-results-panel") }),
+  createEfficiencyView(document.getElementById("efficiency-panel"), { actions }),
 ];
 
 function modelInputsChanged(state, prev) {
@@ -177,7 +219,7 @@ store.subscribe((state, prev) => {
     // replaced; listeners may not set state themselves, so this follows right after.
     const [f] = framesAt(model, phaseOf(model, state.playback));
     const card = validCard(model, state.card, f);
-    if (card !== state.card) queueMicrotask(() => store.set({ card: validCard(model, store.get().card, f) }));
+    if (card !== state.card && state.mode === "explore") queueMicrotask(() => store.set({ card: validCard(model, store.get().card, f) }));
   }
   if (rebuild || state.options !== prev.options || state.card !== prev.card) {
     for (const v of views) v.render(model, state);

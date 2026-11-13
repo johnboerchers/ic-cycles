@@ -119,8 +119,10 @@ export function createTransport(container, actions) {
     lastState = state;
     strokesBox.checked = state.options.strokes;
     shadeBox.checked = state.options.shade;
-    // The strokes switch is hidden in compare mode (SPEC section 14).
+    // The strokes switch is hidden in compare mode (SPEC section 14), and so is the shading
+    // switch, since compare mode draws no shading (SPEC section 15).
     strokesBox.parentElement.hidden = state.mode === "compare";
+    shadeBox.parentElement.hidden = state.mode === "compare";
   }
 
   function tick(frames, state) {

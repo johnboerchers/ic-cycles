@@ -9,6 +9,11 @@
 // Area shading (linear axes only): the loop is tinted and labeled, and the area under the
 // current process fills up to the dot (work on P–v, heat on T–s). With the intake and exhaust
 // strokes on, P–v gets the P1 line with state 0, and the point runs along it using vCyl.
+//
+// Compare mode (SPEC section 15): color means the cycle, not the process: A solid in the A
+// color, B dashed in the B color, each with its own dot and state labels, and a key in the
+// title row. No piston strip, no shading, and no drop-lines or axis values (two sets would
+// cover each other; the readouts under the engines give the numbers).
 
 import { linear, logScale, ticks, logTicks } from "../core/scale.js";
 import { formatTicks, formatLogTicks, formatValue } from "../core/format.js";
@@ -72,6 +77,7 @@ export function createDiagramView(container, { kind, actions }) {
   const head = htmlEl("div", { class: "panel-head" });
   container.prepend(head);
   if (title) head.append(title);
+  const key = htmlEl("div", { class: "compare-key", hidden: "" }, head);
   let logBox = null;
   if (cfg.canLog) logBox = makeSwitch(head, "Log axes", (on) => actions.setOption("logAxes", on), "small");
 
@@ -93,6 +99,7 @@ export function createDiagramView(container, { kind, actions }) {
   let size = { w: 0, h: 0 };
   let log = false;
   let shade = false; // area shading on (the switch, and linear axes)
+  let compare = false; // two cycles, colored by cycle
   let strokes = false; // intake and exhaust strokes in the timeline
   let shown = null; // axis bounds on screen now, [[x0, x1], [y0, y1]]
   let target = null; // axis bounds being moved to
@@ -120,7 +127,9 @@ export function createDiagramView(container, { kind, actions }) {
     lastState = state;
     log = newLog;
     if (logBox) logBox.checked = log;
-    shade = state.options.shade && !log;
+    compare = model.mode === "compare";
+    shade = state.options.shade && !log && !compare;
+    renderKey();
     strokes = model.cycles[0].timeline.slots.some((sl) => sl.id === "X" && sl.u1 > sl.u0);
     if (note) note.hidden = !strokes;
     const css = getComputedStyle(document.documentElement);
@@ -189,7 +198,7 @@ export function createDiagramView(container, { kind, actions }) {
     };
     const xt = tickSet(...target[0], bx);
     const yt = tickSet(...target[1], by);
-    const withStrip = cfg.canLog && !log;
+    const withStrip = cfg.canLog && !log && !compare;
     const left = Math.round(Math.max(44, 16 + CHAR_W * Math.max(...yt.map((d) => d.label.length))));
     const bottom = size.h - (withStrip ? STRIP.bottom : MARGIN.bottom);
     plot = { left, right: size.w - MARGIN.right, top: MARGIN.top, bottom };
@@ -197,7 +206,8 @@ export function createDiagramView(container, { kind, actions }) {
     sx = scale(bx, [plot.left, plot.right]);
     sy = scale(by, [plot.bottom, plot.top]);
     drawAxes(bx, by, xt, yt, withStrip);
-    items = model.cycles.map((c, i) => drawCycle(c, samples[i]));
+    items = [];
+    model.cycles.forEach((c, i) => items.push(drawCycle(c, samples[i])));
     if (withStrip) strip = drawStrip(model.cycles[0]);
   }
 
@@ -231,8 +241,24 @@ export function createDiagramView(container, { kind, actions }) {
     }
   }
 
+  // The key in the title row in compare mode: a line sample and the cycle's name per cycle.
+  function renderKey() {
+    key.hidden = !compare;
+    key.replaceChildren();
+    if (!compare) return;
+    for (const c of model.cycles) {
+      const item = htmlEl("span", { class: "compare-key-item" }, key);
+      htmlEl("span", { class: `side-swatch ${c.id}`, "aria-hidden": "true" }, item);
+      item.append(c.label);
+    }
+  }
+
+  // Color of a process: its role in explore mode, its cycle in compare mode.
+  const paint = (cycle, role) => (compare ? `var(--compare-${cycle.id})` : roleColor(role));
+
   function drawCycle(cycle, phases) {
     const { solution, samples: pts } = cycle;
+    const dashed = compare && cycle.id === "b" ? " dashed" : "";
     const drawn = solution.processes.filter((p) => !p.degenerate);
     const screen = {};
     for (const p of drawn) {
@@ -244,10 +270,10 @@ export function createDiagramView(container, { kind, actions }) {
 
     // One curve per process in its role color, with an arrowhead at its middle.
     for (const p of drawn) {
-      svgEl("path", { class: "curve", d: polyline(screen[p.id]), style: `stroke:${roleColor(p.role)}` }, layer.curves);
+      svgEl("path", { class: `curve${dashed}`, d: polyline(screen[p.id]), style: `stroke:${paint(cycle, p.role)}` }, layer.curves);
       const mid = midpoint(screen[p.id]);
       if (mid) {
-        svgEl("path", { d: ARROW_PATH, transform: `translate(${px(mid.x)} ${px(mid.y)}) rotate(${px(mid.angle)})`, style: `fill:${roleColor(p.role)}` }, layer.arrows);
+        svgEl("path", { d: ARROW_PATH, transform: `translate(${px(mid.x)} ${px(mid.y)}) rotate(${px(mid.angle)})`, style: `fill:${paint(cycle, p.role)}` }, layer.arrows);
       }
     }
 
@@ -260,8 +286,14 @@ export function createDiagramView(container, { kind, actions }) {
     });
     const cx = corners.reduce((a, c) => a + c.x, 0) / corners.length;
     const cy = corners.reduce((a, c) => a + c.y, 0) / corners.length;
+    // In compare mode a state both cycles share (state 1, and state 2 at the same r) is marked
+    // and labeled once, and the same state of the two cycles close together on screen (state 3
+    // at the same peak pressure) gets one label for both.
+    const near = (c, dist) => items.some((it) => it.corners.some((o) => o.name === c.name && Math.hypot(o.x - c.x, o.y - c.y) < dist));
     for (const c of corners) {
+      if (near(c, 1)) continue;
       svgEl("circle", { class: "marker", cx: px(c.x), cy: px(c.y), r: 4 }, layer.markers);
+      if (near(c, 2 * LABEL_GAP)) continue;
       const [dx, dy] = outward(c, alongFromEnd(c.before), alongFromStart(c.after), cx, cy);
       const lx = clamp(c.x + dx * LABEL_GAP, plot.left + 8, plot.right - 4);
       const ly = clamp(c.y + dy * LABEL_GAP, plot.top + 6, plot.bottom - 7);
@@ -281,11 +313,13 @@ export function createDiagramView(container, { kind, actions }) {
       line,
       area: shade ? svgEl("path", { class: "area-shade" }, layer.shade) : null,
       trail: svgEl("path", { class: "trail" }, layer.trails),
-      dropX: svgEl("line", { class: "drop-line" }, layer.drops),
-      dropY: svgEl("line", { class: "drop-line" }, layer.drops),
-      dot: svgEl("circle", { class: "dot", r: 7 }, layer.dots),
-      badgeX: badge(),
-      badgeY: badge(),
+      dropX: compare ? null : svgEl("line", { class: "drop-line" }, layer.drops),
+      dropY: compare ? null : svgEl("line", { class: "drop-line" }, layer.drops),
+      // B's dot is a little smaller, so A's still shows around it where the two coincide.
+      dot: svgEl("circle", { class: "dot", r: compare && cycle.id === "b" ? 5 : 7, style: compare ? `fill:${paint(cycle)}` : null }, layer.dots),
+      badgeX: compare ? null : badge(),
+      badgeY: compare ? null : badge(),
+      cycle,
       role: null,
     };
   }
@@ -379,8 +413,10 @@ export function createDiagramView(container, { kind, actions }) {
       it.dot.setAttribute("cx", px(x));
       it.dot.setAttribute("cy", px(y));
       // On P–v with the strip, the drop-line runs on down to the piston face.
-      setLine(it.dropX, x, y, x, strip && i === 0 ? strip.y0 : plot.bottom);
-      setLine(it.dropY, plot.left, y, x, y);
+      if (it.dropX) {
+        setLine(it.dropX, x, y, x, strip && i === 0 ? strip.y0 : plot.bottom);
+        setLine(it.dropY, plot.left, y, x, y);
+      }
 
       // Trail: the part of the current process already covered, 2 px thicker than the curve.
       // During a stroke on P–v it runs along the P1 line from where the stroke started.
@@ -400,13 +436,15 @@ export function createDiagramView(container, { kind, actions }) {
       // Shading: the area under the trail down to the axis, the work or heat so far.
       if (it.area) it.area.setAttribute("d", d ? `${d}L${px(x)} ${px(plot.bottom)}L${px(x0)} ${px(plot.bottom)}Z` : "");
       if (it.role !== f.role) {
-        it.trail.style.stroke = roleColor(f.role);
+        it.trail.style.stroke = paint(it.cycle, f.role);
         if (it.area) it.area.style.fill = roleColor(f.role);
         it.role = f.role;
       }
 
-      setBadge(it.badgeX, formatValue(cfg.x.key, valueX), x, plot.bottom + 17, "middle");
-      setBadge(it.badgeY, formatValue(cfg.y.key, valueY), plot.left - 5, clamp(y, plot.top - 8, plot.bottom + 8), "end");
+      if (it.badgeX) {
+        setBadge(it.badgeX, formatValue(cfg.x.key, valueX), x, plot.bottom + 17, "middle");
+        setBadge(it.badgeY, formatValue(cfg.y.key, valueY), plot.left - 5, clamp(y, plot.top - 8, plot.bottom + 8), "end");
+      }
     });
 
     if (strip) {
@@ -478,23 +516,32 @@ export function createDiagramView(container, { kind, actions }) {
   function hover(x, y) {
     for (const it of items) {
       for (const c of it.corners) {
-        if (Math.hypot(c.x - x, c.y - y) <= HOVER_MARKER_PX) return showStateTip(it.solution, c, x, y);
+        if (Math.hypot(c.x - x, c.y - y) <= HOVER_MARKER_PX) return showStateTip(it, c, x, y);
       }
     }
     for (const it of items) {
       for (const p of it.drawn) {
-        if (distanceToPolyline(it.screen[p.id], x, y) <= HOVER_CURVE_PX) return showProcessTip(p, x, y);
+        if (distanceToPolyline(it.screen[p.id], x, y) <= HOVER_CURVE_PX) return showProcessTip(it, p, x, y);
       }
     }
     hideTip();
   }
 
-  function showStateTip(solution, corner, x, y) {
-    const key = `state ${corner.name}`;
+  // In compare mode a tooltip starts with the cycle it belongs to (a shared state: both).
+  const whose = (it, corner) => {
+    if (!compare) return "";
+    if (corner && items.length > 1 && items.every((o) => o.corners.some((c) => c.name === corner.name && Math.hypot(c.x - corner.x, c.y - corner.y) < 1))) {
+      return `${items.map((o) => o.cycle.side).join(" and ")}: `;
+    }
+    return `${it.cycle.side}: `;
+  };
+
+  function showStateTip(it, corner, x, y) {
+    const key = `${it.cycle.id} state ${corner.name}`;
     if (tip.dataset.key !== key) {
       tip.replaceChildren();
-      htmlEl("div", { class: "tooltip-title", text: `State ${corner.name}` }, tip);
-      const st = solution.states[corner.name];
+      htmlEl("div", { class: "tooltip-title", text: `${whose(it, corner)}State ${corner.name}` }, tip);
+      const st = it.solution.states[corner.name];
       const dl = htmlEl("dl", {}, tip);
       for (const q of ["P", "T", "v", "s"]) {
         const dt = htmlEl("dt", {}, dl);
@@ -507,13 +554,13 @@ export function createDiagramView(container, { kind, actions }) {
     placeTip(x, y);
   }
 
-  function showProcessTip(process, x, y) {
-    const key = `process ${process.id}`;
+  function showProcessTip(it, process, x, y) {
+    const key = `${it.cycle.id} process ${process.id}`;
     if (tip.dataset.key !== key) {
       tip.replaceChildren();
       const t = htmlEl("div", { class: "tooltip-title" }, tip);
-      htmlEl("span", { class: "chip", style: `background:${roleColor(process.role)}` }, t);
-      t.append(`${process.id.replace("-", "→")} ${CONTENT.roles[process.role].label}`);
+      htmlEl("span", { class: "chip", style: `background:${paint(it.cycle, process.role)}` }, t);
+      t.append(`${whose(it)}${process.id.replace("-", "→")} ${CONTENT.roles[process.role].label}`);
       const terms = energyTerms(process);
       const dl = htmlEl("dl", {}, tip);
       for (const sym of ["q", "w"]) {

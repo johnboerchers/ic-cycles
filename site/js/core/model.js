@@ -1,14 +1,15 @@
 // buildModel(state): everything the views draw, as plain data (BUILD_PLAN.md, "Architecture").
-// The model holds a list of cycles so that compare mode (two cycles on one shared timeline) is
-// an addition later, not a rewrite. In explore mode the list has one entry.
+// The model holds a list of cycles: one in explore mode, two (A and B on one shared timeline)
+// in compare mode.
 //
 // Also here: the playback helpers that move the playhead along the timeline, so that the
 // clock in main.js stays thin and this logic is tested.
 
 import { makeGas } from "./gas.js";
 import { ratiosFor, solveCycle } from "./cycle.js";
+import { sideRatios } from "./compare.js";
 import { sampleProcess } from "./paths.js";
-import { buildTimeline, frameAt, phaseOfSlot } from "./timeline.js";
+import { buildTimeline, frameAt, phaseOfSlot, slotProcesses } from "./timeline.js";
 import { niceBound, niceUpper, niceLower } from "./scale.js";
 import { CONTENT } from "../content/content.js";
 
@@ -40,8 +41,8 @@ export function solveCycleFor(type, params, shared) {
   return solveCycle({ type, P1: shared.P1, T1: shared.T1, ...ratios, gas });
 }
 
-function cycleEntry(id, label, solution, options) {
-  const timeline = buildTimeline(solution, { strokes: options.strokes });
+function cycleEntry(id, label, solution, timelineOptions) {
+  const timeline = buildTimeline(solution, timelineOptions);
   const samples = {};
   for (const pr of solution.processes) {
     if (!pr.degenerate) samples[pr.id] = sampleProcess(solution, pr.id);
@@ -69,11 +70,42 @@ export function axisBounds(cycles) {
 }
 
 export function buildModel(state) {
+  if (state.mode === "compare") return buildCompareModel(state);
   const { cycle, shared, params, options } = state;
-  // Explore mode. Compare mode (two cycles, forced slots) is added in milestone M6.
   const solution = solveCycleFor(cycle, params[cycle], shared);
-  const cycles = [cycleEntry(cycle, CONTENT.cycles[cycle].name, solution, options)];
+  const cycles = [cycleEntry(cycle, CONTENT.cycles[cycle].name, solution, { strokes: options.strokes })];
   return { mode: "explore", cycles, bounds: axisBounds(cycles) };
+}
+
+// ------------------------------------------------------------------------------ compare mode
+
+export const SIDES = ["a", "b"];
+
+// Compare mode (SPEC section 15): cycles A and B share state 1 and k. Each side's ratios come
+// from the "hold equal" choice (PHYSICS.md section 7). The two timelines are built with each
+// other's slots forced, so they have identical slot boundaries and one phase drives both: in a
+// slot only one cycle has, the other waits. The strokes are not shown in compare mode.
+//
+// `compare.sides` keeps both sides, with `solution: null` for a side whose constraint cannot be
+// met; `cycles` holds only the sides that have a cycle (normally both).
+export function buildCompareModel(state) {
+  const { shared, compare } = state;
+  const gas = makeGas({ k: shared.k });
+  const sides = SIDES.map((key) => {
+    const side = compare[key];
+    const ratios = sideRatios(compare.constraint, compare.shared, side, shared.P1, shared.T1, gas);
+    const solution = ratios && solveCycle({ type: side.type, P1: shared.P1, T1: shared.T1, ...ratios, gas });
+    return { key, letter: key.toUpperCase(), type: side.type, xv: side.xv, solution };
+  });
+  const solved = sides.filter((s) => s.solution);
+  const own = solved.map((s) => Object.keys(slotProcesses(s.solution)));
+  const union = new Set(own.flat());
+  const cycles = solved.map((s, i) => {
+    const force = [...union].filter((id) => !own[i].includes(id));
+    const label = `${s.letter}: ${CONTENT.cycles[s.type].name}`;
+    return { ...cycleEntry(s.key, label, s.solution, { strokes: false, force }), side: s.letter };
+  });
+  return { mode: "compare", cycles, bounds: axisBounds(cycles), compare: { constraint: compare.constraint, sides } };
 }
 
 // States that get a marker and a label on the diagrams: the ends of the processes that are
@@ -88,15 +120,27 @@ export function labeledStates(solution) {
   return ["1", "2", "x", "3", "4"].filter((id) => ends.has(id) && (id !== "x" || xOwn));
 }
 
-// The segments of the timeline bar: one per non-empty slot of the shared timeline.
+// The segments of the timeline bar: one per non-empty slot of the shared timeline. In compare
+// mode a slot that only one cycle has is labeled with that cycle's letter ("A 2→3"), and a slot
+// both have with their process ids ("2→3" or "2→3 / 2→x").
 export function timelineSegments(model) {
   const { timeline } = model.cycles[0];
+  const compare = model.mode === "compare";
   return timeline.slots
     .filter((s) => s.u1 > s.u0)
     .map((s) => {
       const role = SLOT_ROLE[s.id];
-      const processId = s.processId ?? STROKE_PROCESS[s.id] ?? null;
-      const label = processId ? processId.replace("-", "→") : CONTENT.roles[role].label;
+      const owners = model.cycles
+        .map((c) => ({ c, id: c.timeline.slots.find((x) => x.id === s.id).processId }))
+        .filter((o) => o.id);
+      const processId = owners[0]?.id ?? STROKE_PROCESS[s.id] ?? null;
+      const arrow = (id) => id.replace("-", "→");
+      let label = processId ? arrow(processId) : CONTENT.roles[role].label;
+      if (compare && owners.length) {
+        label = owners.length < model.cycles.length
+          ? `${owners[0].c.side} ${arrow(owners[0].id)}`
+          : [...new Set(owners.map((o) => arrow(o.id)))].join(" / ");
+      }
       return { slot: s.id, role, processId, label, u0: s.u0, u1: s.u1, seconds: s.seconds };
     });
 }

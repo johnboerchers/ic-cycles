@@ -3,7 +3,10 @@
 // screen pixels, so it stays a real 11–14 px whatever the size of the panel.
 //
 // Written against the model's list of cycles: each cycle gets its own engine, side by side.
-// In explore mode the list has one entry.
+// In explore mode the list has one entry. In compare mode (SPEC section 15) there are two, on
+// one shared timeline: each is labeled with its cycle above it and shows a "waiting" tag while
+// it waits through a slot only the other cycle has. The thermometer is left out there to give
+// the two engines room; the gas color and the readouts still show the temperature.
 
 import { colorRamp } from "../core/scale.js";
 import { formatValue } from "../core/format.js";
@@ -38,6 +41,8 @@ const THERMO_BOTTOM = LINER_END;
 const PAD = 6;
 const LEFT_TEXT = 38; // room for the w label left of the work arrow
 const RIGHT_TEXT = 94; // TDC/BDC labels, thermometer and its scale, right of the wall
+const RIGHT_TEXT_COMPARE = 34; // TDC/BDC labels only
+const LABEL_ROW = 24; // compare mode: the cycle's label and the waiting tag above each engine
 const T_MIN = GAS_RAMP_T[0]; // the thermometer spans the fixed gas color scale
 const T_MAX = GAS_RAMP_T[GAS_RAMP_T.length - 1];
 const THERMO_TICKS = [500, 1000, 1500, 2000, 2500];
@@ -70,6 +75,7 @@ export function createEngineView(container) {
   let lastFrames = null;
   let lastState = null;
   let size = { w: 0, h: 0 };
+  let compare = false;
   let gasColor = () => "#ffffff";
 
   new ResizeObserver(([entry]) => {
@@ -85,11 +91,14 @@ export function createEngineView(container) {
   function render(newModel, state) {
     model = newModel;
     lastState = state;
+    compare = model.mode === "compare";
+    readouts.classList.toggle("two", model.cycles.length > 1);
     size = { w: figure.clientWidth, h: figure.clientHeight };
     const css = getComputedStyle(document.documentElement);
     gasColor = colorRamp(GAS_RAMP_T.map((T) => [T, css.getPropertyValue(`--gas-${T}`)]));
-    const captions = [...new Set(model.cycles.map((c) => CAPTION[c.solution.type]))];
-    caption.textContent = captions.join(" · ");
+    // One caption per engine, each under its own engine.
+    caption.replaceChildren(...model.cycles.map((c) => htmlEl("span", { text: CAPTION[c.solution.type] })));
+    caption.classList.toggle("two", model.cycles.length > 1);
     buildReadouts();
     build();
   }
@@ -97,7 +106,7 @@ export function createEngineView(container) {
   function buildReadouts() {
     readouts.replaceChildren();
     rows = model.cycles.map((c) => {
-      const dl = htmlEl("dl", { class: "readout", "aria-live": "off" }, readouts);
+      const dl = htmlEl("dl", { class: "readout", "aria-live": "off", "aria-label": compare ? c.label : null }, readouts);
       const cell = (symbol, unit) => {
         const div = htmlEl("div", {}, dl);
         const dt = htmlEl("dt", {}, div);
@@ -131,13 +140,15 @@ export function createEngineView(container) {
     const yQ = yHead + hc / 2; // heat arrows point at the gas that is always there, under the head
 
     // Scale: as large as the height allows, unless the width (with its text) is the limit.
-    const kH = (size.h - 2 * PAD) / (BOTTOM - TOP);
-    const kW = (colW - 2 * PAD - LEFT_TEXT - RIGHT_TEXT) / (-W_X + 14 + OUTER);
+    const rightText = compare ? RIGHT_TEXT_COMPARE : RIGHT_TEXT;
+    const top = compare ? LABEL_ROW : 0;
+    const kH = (size.h - top - 2 * PAD) / (BOTTOM - TOP);
+    const kW = (colW - 2 * PAD - LEFT_TEXT - rightText) / (-W_X + 14 + OUTER);
     const k = Math.max(0.1, Math.min(kH, kW));
     const leftExtent = Math.max(-Q_TAIL * k, (-W_X + 14) * k + LEFT_TEXT);
-    const width = leftExtent + OUTER * k + RIGHT_TEXT;
+    const width = leftExtent + OUTER * k + rightText;
     const ox = x0 + (colW - width) / 2 + leftExtent;
-    const oy = (size.h - (BOTTOM - TOP) * k) / 2 - TOP * k;
+    const oy = top + (size.h - top - (BOTTOM - TOP) * k) / 2 - TOP * k;
     const X = (u) => ox + u * k;
     const Y = (u) => oy + u * k;
 
@@ -251,19 +262,36 @@ export function createEngineView(container) {
       svgEl("text", { class: "small-label", x: px(X(OUTER) + 6), y: yy, "dominant-baseline": "central", text: label }, text);
     }
 
-    // Thermometer: the legend for the gas color, with a pointer at the current T.
+    // Compare mode: the cycle above its engine (a line sample in its color, then its name) and
+    // the "waiting" tag beside it.
+    let waitTag = null;
+    if (compare) {
+      const cx = x0 + colW / 2;
+      const name = `${cycle.side}: ${cycle.label.slice(3).replace(" cycle", "")}`;
+      const nameW = 7.4 * name.length;
+      const left = cx - (nameW + 22) / 2;
+      svgEl("line", { class: `side-line ${cycle.id}`, x1: px(left), x2: px(left + 16), y1: 11, y2: 11 }, text);
+      svgEl("text", { class: "side-label", x: px(left + 22), y: 11, "dominant-baseline": "central", text: name }, text);
+      // Left of the cylinder, where the heat arrow would be: a waiting cycle adds no heat.
+      waitTag = svgEl("g", { class: "wait-tag", opacity: 0, transform: `translate(${px(X(-OUTER) - 33)} ${px(Y(yQ))})` }, text);
+      svgEl("rect", { x: -29, y: -9, width: 58, height: 18, rx: 9 }, waitTag);
+      svgEl("text", { x: 0, y: 0.5, "text-anchor": "middle", "dominant-baseline": "central", text: "waiting" }, waitTag);
+    }
+
+    // Thermometer: the legend for the gas color, with a pointer at the current T (explore only).
     const tx = X(OUTER) + 50;
     const tTop = Y(THERMO_TOP);
     const tBottom = Y(THERMO_BOTTOM);
     const yOfT = (T) => tBottom - ((Math.min(T_MAX, Math.max(T_MIN, T)) - T_MIN) / (T_MAX - T_MIN)) * (tBottom - tTop);
-    symbolText(text, { class: "small-label", x: px(tx + 5), y: px(tTop - 8), "text-anchor": "middle" }, "T", { after: " (K)" });
-    svgEl("rect", { class: "thermo-bar", x: px(tx), y: px(tTop), width: 10, height: px(tBottom - tTop), rx: 5, fill: `url(#${id}-thermo)` }, text);
+    const thermoG = svgEl("g", { display: compare ? "none" : null }, text);
+    symbolText(thermoG, { class: "small-label", x: px(tx + 5), y: px(tTop - 8), "text-anchor": "middle" }, "T", { after: " (K)" });
+    svgEl("rect", { class: "thermo-bar", x: px(tx), y: px(tTop), width: 10, height: px(tBottom - tTop), rx: 5, fill: `url(#${id}-thermo)` }, thermoG);
     for (const T of THERMO_TICKS) {
       const y = Math.round(yOfT(T)) + 0.5;
-      svgEl("line", { class: "thermo-tick", x1: px(tx + 10), x2: px(tx + 14), y1: y, y2: y }, text);
-      svgEl("text", { class: "tick-label", x: px(tx + 17), y, "dominant-baseline": "central", text: String(T) }, text);
+      svgEl("line", { class: "thermo-tick", x1: px(tx + 10), x2: px(tx + 14), y1: y, y2: y }, thermoG);
+      svgEl("text", { class: "tick-label", x: px(tx + 17), y, "dominant-baseline": "central", text: String(T) }, thermoG);
     }
-    const pointer = svgEl("g", {}, text);
+    const pointer = svgEl("g", {}, thermoG);
     svgEl("path", { class: "pointer", d: `M${px(tx - 9)} -5L${px(tx - 2)} 0L${px(tx - 9)} 5Z` }, pointer);
     svgEl("line", { class: "pointer-line", x1: px(tx - 2), x2: px(tx + 12), y1: 0, y2: 0 }, pointer);
 
@@ -277,7 +305,7 @@ export function createEngineView(container) {
 
     return {
       k, X, Y, yHead, yOfT, gas, glowRect, spray, spark, piston, rod, bigEnd, crankPin, arm, valves,
-      qIn, qOut, qInLabel, qOutLabel, wGroup, wIn, wOut, wLabel: w.text, wSub: w.sub, airLabel, pointer,
+      qIn, qOut, qInLabel, qOutLabel, wGroup, wIn, wOut, wLabel: w.text, wSub: w.sub, airLabel, pointer, waitTag,
       shown: new Map(),
     };
   }
@@ -351,6 +379,7 @@ export function createEngineView(container) {
     put(e, e.pointer, "transform", `translate(0 ${px(e.yOfT(T))})`);
     put(e, e.airLabel, "y", px(e.Y((e.yHead + crown) / 2)));
     put(e, e.airLabel, "opacity", gasH * e.k >= 22 ? 1 : 0);
+    if (e.waitTag) put(e, e.waitTag, "opacity", f.waiting ? 1 : 0);
   }
 
   function tick(frames, state) {

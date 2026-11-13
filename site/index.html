@@ -10,13 +10,17 @@
     <link rel="stylesheet" href="css/app.css" />
     <script type="module" src="js/main.js"></script>
   </head>
-  <body>
+  <body data-mode="explore">
     <header class="app-header">
       <h1 class="app-title">Engine cycles</h1>
       <div class="segmented" id="cycle-select" role="group" aria-label="Cycle">
         <button type="button" data-cycle="otto" aria-pressed="true" title="Otto cycle (1)">Otto</button>
         <button type="button" data-cycle="diesel" aria-pressed="false" title="Diesel cycle (2)">Diesel</button>
         <button type="button" data-cycle="dual" aria-pressed="false" title="Dual cycle (3)">Dual</button>
+      </div>
+      <div class="segmented" id="mode-select" role="group" aria-label="Mode">
+        <button type="button" data-mode="explore" aria-pressed="true">Explore</button>
+        <button type="button" data-mode="compare" aria-pressed="false">Compare</button>
       </div>
       <nav class="header-links" aria-label="Reference">
         <button type="button" class="link-btn" id="symbols-btn" aria-haspopup="dialog">Symbols</button>
@@ -40,12 +44,14 @@
       <section class="panel transport" id="transport" aria-label="Playback"></section>
 
       <section class="lower" aria-label="Details">
-        <div class="panel lower-panel" id="card-panel"><h2 class="panel-title">Process</h2></div>
-        <div class="panel lower-panel" id="params-panel"><h2 class="panel-title">Parameters</h2></div>
-        <div class="panel lower-panel" id="results-panel"><h2 class="panel-title">Results</h2></div>
-        <div class="panel lower-panel" id="states-panel"><h2 class="panel-title">States</h2></div>
-        <div class="panel lower-panel" id="energy-panel"><h2 class="panel-title">Energy</h2></div>
-        <div class="panel placeholder" id="efficiency-panel"><h2 class="panel-title">Efficiency</h2></div>
+        <div class="panel lower-panel explore-only" id="card-panel"><h2 class="panel-title">Process</h2></div>
+        <div class="panel lower-panel explore-only" id="params-panel"><h2 class="panel-title">Parameters</h2></div>
+        <div class="panel lower-panel explore-only" id="results-panel"><h2 class="panel-title">Results</h2></div>
+        <div class="panel lower-panel explore-only" id="states-panel"><h2 class="panel-title">States</h2></div>
+        <div class="panel lower-panel explore-only" id="energy-panel"><h2 class="panel-title">Energy</h2></div>
+        <div class="panel lower-panel compare-only" id="compare-panel"><h2 class="panel-title">Compare</h2></div>
+        <div class="panel lower-panel compare-only" id="compare-results-panel"><h2 class="panel-title">Results</h2></div>
+        <div class="panel lower-panel" id="efficiency-panel"><h2 class="panel-title">Efficiency</h2></div>
       </section>
     </main>
   </body>

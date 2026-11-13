@@ -1502,3 +1502,346 @@ sub {
 .energy-outline[hidden] {
   display: none;
 }
+
+/* ------------------------------------------------------------ M6: efficiency and compare */
+
+/* Panels of one mode only (body[data-mode] is set by the header). */
+body[data-mode="compare"] .explore-only,
+body[data-mode="explore"] .compare-only {
+  display: none;
+}
+
+/* Compare mode: the engine panel holds two engines, so it gets more of the stage. */
+body[data-mode="compare"] .stage {
+  grid-template-columns: 30fr 35fr 35fr;
+}
+
+.segmented button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.segmented button:disabled:hover {
+  background: transparent;
+  color: var(--ink-2);
+}
+
+/* A line sample for cycle A (solid) or B (dashed), next to its name. */
+.side-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-top: 3px solid var(--compare-a);
+}
+
+.side-swatch.b {
+  border-top: 3px dashed var(--compare-b);
+}
+
+.compare-key {
+  display: flex;
+  gap: var(--space-3);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.compare-key[hidden] {
+  display: none;
+}
+
+.diagram .curve.dashed,
+.efficiency .eff-main.dashed {
+  stroke-dasharray: 9 5;
+  stroke-linecap: butt;
+}
+
+/* Engines in compare mode: the label above each and the waiting tag. */
+.engine .side-line {
+  stroke: var(--compare-a);
+  stroke-width: 3;
+}
+
+.engine .side-line.b {
+  stroke: var(--compare-b);
+  stroke-dasharray: 5 3;
+}
+
+.engine .side-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+.engine .wait-tag rect {
+  fill: var(--ink);
+}
+
+.engine .wait-tag text {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  fill: var(--surface);
+}
+
+.readouts.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.readouts.two .readout dd {
+  font-size: 15px;
+}
+
+/* Efficiency chart */
+#efficiency-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.eff-box {
+  min-height: 250px;
+}
+
+.efficiency .eff-band {
+  fill: var(--grid);
+  opacity: 0.55;
+}
+
+.efficiency .eff-band-label {
+  font-size: var(--text-xs);
+  fill: var(--ink-2);
+}
+
+.efficiency .eff-ref {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.25;
+}
+
+.efficiency .eff-main {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.efficiency .eff-label {
+  font-size: var(--text-sm);
+  fill: var(--ink);
+}
+
+.efficiency .eff-label.ref {
+  fill: var(--ink-2);
+}
+
+.efficiency .eff-label .sub,
+.efficiency .axis-title .sub {
+  font-size: 9px;
+}
+
+.efficiency .eff-leader {
+  fill: none;
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.efficiency .eff-value {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.efficiency .eff-marker {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.efficiency .eff-marker.draggable {
+  cursor: grab;
+}
+
+.efficiency .eff-cross {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+
+.efficiency .eff-hover-dot {
+  fill: var(--ink);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.efficiency.grab {
+  cursor: grab;
+}
+
+.efficiency.dragging {
+  cursor: grabbing;
+}
+
+/* Compare controls */
+.compare-controls {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.compare-types {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.compare-type {
+  display: grid;
+  gap: 2px;
+}
+
+.compare-type label {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.compare-type select {
+  height: 32px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.compare-hold {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.compare-hold legend {
+  margin-bottom: 2px;
+  padding: 0;
+}
+
+.compare-hold .radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 26px;
+  cursor: pointer;
+}
+
+.compare-hold input {
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.compare-sliders {
+  margin-top: 0;
+}
+
+.compare-heading {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* Compare results */
+.compare-results {
+  margin-top: var(--space-2);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 3px var(--space-2);
+  border-bottom: 1px solid var(--grid);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.compare-table th[scope="row"],
+.compare-table th.q {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.compare-table thead th {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.compare-table .unit-col {
+  padding-left: 0;
+  text-align: left;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.compare-table .eta-row td {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.compare-table td.better {
+  font-weight: 700;
+}
+
+.better-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 16px;
+  vertical-align: 1px;
+}
+
+.compare-note {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.compare-takeaway {
+  margin: var(--space-3) 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.engine-caption span {
+  display: block;
+}
+
+.engine-caption.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
