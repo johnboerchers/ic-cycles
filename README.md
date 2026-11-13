@@ -9,7 +9,8 @@ diagram at the same time.
 added and work out, the state point on the P–v and T–s diagrams, the area under the T–s curve
 shaded as heat, and the process card below.](docs/images/screenshot.png)
 
-**Status:** complete apart from publishing. The site is not public yet.
+**Open it:** https://johnboerchers.github.io/ic-cycles/ (nothing to install; works on
+laptops, tablets and phones).
 
 ## What you can do with it
 
