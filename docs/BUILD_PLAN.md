@@ -17,7 +17,7 @@ open and look at.
 Stage 1, variable specific heats (the setup is done: PHYSICS.md section 12, SPEC.md section 19,
 the second fixture and the teaching text):
 
-- [ ] M8 Variable specific heats: core model
+- [x] M8 Variable specific heats: core model
 - [ ] M9 Variable specific heats: page
 
 ## For the instructor: how to run this
@@ -514,6 +514,21 @@ whether to push: a push publishes to students.
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M8 (variable specific heats, core).** `npm test`: 160 tests, constant fixture and every earlier
+  expectation untouched; the variable fixture reproduced at 1e-9 (`tests/variable.test.js`). The page
+  still loads with constant heats and shows the same numbers; nothing in `site/` outside `core/` and
+  `state/defaults.js` changed, so M9 has to switch the views over (`contentFor`, `texValues(solution, cold)`,
+  `exploreCurves`/`compareCurves` already follow the gas of the solution/state).
+- API for M9: `buildModel` takes `state.specificHeats`; explore + variable gives `cycles[0].cold =
+  { solution, samples }` (no timeline) and `axisBounds(cycles, withCold)` is called with `options.coldCycle`.
+  `solveCycleFor(type, params, shared, specificHeats = "constant")`, `solveColdCycleFor`, `gasFor`.
+  Variable efficiency curves are lists of points that skip rc ≥ r; reference keys are `cold`, `qin400`, `qin1600`.
+- Two test edits, neither changes an expected number: `m4.test.js` expects the 9 new value names as well;
+  `gas.test.js` lets the gas object carry its new property functions (`allowExtra`).
+- Judgment call: a zero-length heat addition has mathematically zero energy, but the reference holds
+  about 1e-13 of rounding noise there (not reproducible across platforms), so those fixture midpoints'
+  q, w, du are compared to 1e-9 absolute. Every other number is compared at the usual 1e-9 relative.
 
 - **Stage 1 setup (variable specific heats).** Done by the planning session: PHYSICS.md
   section 12, SPEC.md section 19, `tests/fixtures/reference-variable.json` (from

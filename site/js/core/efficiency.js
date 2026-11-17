@@ -4,8 +4,8 @@
 // with curve = { key, label, points: [[r, eta], ...] }. Explore mode has one main curve (bold)
 // and the gray reference curves; compare mode has one main curve per side and no references.
 
-import { makeGas } from "./gas.js";
-import { etaClosedForm, ratiosFor, ratiosFromHeat } from "./cycle.js";
+import { gasFor } from "./gas.js";
+import { etaClosedForm, ratiosFor, ratiosFromHeat, solveCycle } from "./cycle.js";
 import { addsHeat } from "./tables.js";
 import { formatValue } from "./format.js";
 import { CONTENT } from "../content/content.js";
@@ -29,11 +29,30 @@ export function etaCurve(ratiosAt, k, n = N) {
 
 const fixedRatios = (rp, rc) => () => ({ rp, rc });
 
+// Variable specific heats (PHYSICS.md section 12.6): every point is a complete cycle solved at
+// that r, so there is no closed form. `ratiosAt(r)` gives {rp, rc} with the quantity the chart
+// holds fixed held fixed. Points where rc >= r are skipped: state 3 would lie past BDC.
+export function etaCurveSolved(type, ratiosAt, P1, T1, gas, n = N) {
+  const [r0, r1] = R_RANGE;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const r = r0 + ((r1 - r0) * i) / (n - 1);
+    const { rp, rc } = ratiosAt(r);
+    if (rc >= r) continue;
+    out.push([r, solveCycle({ type, P1, T1, r, rp, rc, gas }).metrics.eta]);
+  }
+  return out;
+}
+
+const COLD_K = 1.4;
+
 // Explore mode: the current cycle bold, with the reference curves for its type.
 //   Otto: k = 1.3 and 1.667.  Diesel: r_c = 1 (the Otto limit), 2, 3, 4.
 //   Dual: the Otto curve and the Diesel curve with the same r_c.
 // Labels are [symbol, subscript, rest] parts, so the view can set the symbol in italics.
+// With variable specific heats it is exploreCurvesVariable instead.
 export function exploreCurves(solution) {
+  if (solution.gas.kind === "variable") return exploreCurvesVariable(solution);
   const { type, gas, inputs } = solution;
   const { k } = gas;
   const { rp, rc, r } = inputs;
@@ -62,12 +81,54 @@ export function exploreCurves(solution) {
   return { main, refs, markers };
 }
 
+// Explore mode with variable specific heats (SPEC section 19). The bold curve is the current
+// cycle, holding fixed what its type is specified by: q_in for Otto, r_c for Diesel, r_p and
+// r_c for the dual cycle. One gray reference, "cold air, k = 1.4", is the same cycle with
+// constant specific heats (its closed form). For Otto, two more gray curves at q_in = 400 and
+// 1600 kJ/kg show that the efficiency now depends on the heat input.
+function exploreCurvesVariable(solution) {
+  const { type, gas, inputs } = solution;
+  const { P1, T1, rp, rc, r } = inputs;
+  const qin = solution.metrics.qin;
+  const solved = (ratiosAt) => etaCurveSolved(type, ratiosAt, P1, T1, gas);
+  const otto = (q) => (rr) => ratiosFor("otto", { r: rr, qin: q }, T1, gas);
+  const refs = [];
+  let main, coldRatios;
+  if (type === "otto") {
+    main = { label: [["q", "in", ` = ${num(qin)}`]], points: solved(otto(qin)) };
+    coldRatios = [1, 1];
+  } else if (type === "diesel") {
+    main = { label: [["r", "c", ` = ${num(rc)}`]], points: solved(fixedRatios(1, rc)) };
+    coldRatios = [1, rc];
+  } else {
+    main = { label: [["", "", "Dual"]], points: solved(fixedRatios(rp, rc)) };
+    coldRatios = [rp, rc];
+  }
+  refs.push({
+    key: "cold",
+    label: [["", "", "cold air, "], ["k", "", ` = ${num(COLD_K)}`]],
+    points: etaCurve(fixedRatios(...coldRatios), COLD_K),
+  });
+  if (type === "otto") {
+    for (const q of [400, 1600]) {
+      if (Math.abs(q - qin) > SAME) refs.push({ key: `qin${q}`, label: [["q", "in", ` = ${num(q)}`]], points: solved(otto(q)) });
+    }
+  }
+  const ok = addsHeat(solution);
+  return {
+    main: ok ? [{ key: "main", ...main }] : [],
+    refs,
+    markers: ok ? [{ key: "main", r, eta: solution.metrics.eta }] : [],
+  };
+}
+
 // Compare mode: one curve per side, with what the "hold equal" choice keeps fixed held fixed as
 // r varies: q_in and the heat split when r or P_max is shared, the side's own parameters when
 // nothing is held equal. Each side's marker sits at its own r.
 export function compareCurves(model, state) {
   const { shared, compare } = state;
-  const gas = makeGas({ k: shared.k });
+  const gas = gasFor(state.specificHeats, shared.k);
+  const variable = gas.kind === "variable";
   const main = [];
   const markers = [];
   for (const c of model.cycles) {
@@ -77,7 +138,10 @@ export function compareCurves(model, state) {
     const ratiosAt = compare.constraint === "independent"
       ? (r) => ratiosFor(side.type, { ...side.params, r }, shared.T1, gas)
       : (r) => ratiosFromHeat({ r, qin: compare.shared.qin, xv }, shared.T1, gas);
-    main.push({ key, label: [["", "", `${c.side} ${CONTENT.cycles[side.type].name.replace(" cycle", "")}`]], points: etaCurve(ratiosAt, gas.k) });
+    const points = variable
+      ? etaCurveSolved(side.type, ratiosAt, shared.P1, shared.T1, gas)
+      : etaCurve(ratiosAt, gas.k);
+    main.push({ key, label: [["", "", `${c.side} ${CONTENT.cycles[side.type].name.replace(" cycle", "")}`]], points });
     if (addsHeat(c.solution)) markers.push({ key, r: c.solution.inputs.r, eta: c.solution.metrics.eta });
   }
   return { main, refs: [], markers };

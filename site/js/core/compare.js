@@ -3,11 +3,16 @@
 import { ratiosFor, ratiosFromHeat } from "./cycle.js";
 
 // Compression ratio that gives peak pressure Pmax for heat input qin, or null if Pmax is too
-// low for that heat input. P1·(r^k + xv·qin·r/(cv·T1)) increases with r, so bisect.
+// low for that heat input. P3(r) = P1·r·Tx(r)/T1 increases with r (PHYSICS.md section 12.3),
+// so bisect. Tx is the temperature after the constant-volume part of the heat; Tx >= T1 for
+// r >= 1, so P3 >= P1·r and the answer lies below Pmax/P1.
 export function solveRForPmax({ Pmax, qin, xv }, P1, T1, gas) {
-  const { k, cv } = gas;
-  const f = (r) => P1 * (r ** k + (xv * qin * r) / (cv * T1)) - Pmax;
-  let lo = 1, hi = (Pmax / P1) ** (1 / k);
+  const f = (r) => {
+    const T2 = gas.isentropicT(T1, 1 / r);
+    const Tx = xv * qin > 0 ? gas.TfromU(gas.u(T2) + xv * qin) : T2;
+    return (P1 * r * Tx) / T1 - Pmax;
+  };
+  let lo = 1, hi = Pmax / P1;
   if (f(lo) > 0) return null;
   for (let i = 0; i < 200; i++) {
     const mid = 0.5 * (lo + hi);

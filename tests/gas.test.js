@@ -5,7 +5,8 @@ import { fixture, assertDeepClose, assertClose } from "./helpers.js";
 
 test("gas of every fixture cycle", () => {
   for (const c of fixture.cycles) {
-    assertDeepClose(makeGas({ k: c.spec.k, R: c.spec.R }), c.gas, `${c.name} gas`);
+    // The gas also carries its property functions now (PHYSICS.md section 12.2).
+    assertDeepClose(makeGas({ k: c.spec.k, R: c.spec.R }), c.gas, `${c.name} gas`, { allowExtra: true });
   }
 });
 

@@ -61,6 +61,7 @@ export function defaultState() {
   return {
     mode: "explore",
     cycle: "otto",
+    specificHeats: "constant", // or "variable": air with temperature-dependent specific heats (SPEC section 19)
     shared: defaultValues(SHARED),
     params: { otto: defaultValues(PARAMS.otto), diesel: defaultValues(PARAMS.diesel), dual: defaultValues(PARAMS.dual) },
     compare: {
@@ -76,6 +77,7 @@ export function defaultState() {
       pauseAtStates: false,
       showNumbers: true,
       focus: false,
+      coldCycle: true, // variable specific heats only: also draw the k = 1.4 reference cycle
       theme: "auto",
     },
     playback: { playing: false, speed: 1, slot: "C", tau: 0 },

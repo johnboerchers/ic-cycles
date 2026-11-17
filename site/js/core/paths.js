@@ -9,30 +9,31 @@ function processById(solution, processId) {
 }
 
 export function pointOnProcess(solution, processId, lambda) {
-  const { k, cv, cp } = solution.gas;
+  const { R, sT } = solution.gas;
   const pr = processById(solution, processId);
   const A = solution.states[pr.from], B = solution.states[pr.to];
   if (pr.kind === "constV") {
     const T = A.T + lambda * (B.T - A.T);
-    return { P: (A.P * T) / A.T, T, v: A.v, s: A.s + cv * Math.log(T / A.T) };
+    return { P: (A.P * T) / A.T, T, v: A.v, s: A.s + sT(T) - sT(A.T) - R * Math.log(T / A.T) };
   }
   const v = A.v + lambda * (B.v - A.v);
   if (pr.kind === "constP") {
     const T = (A.T * v) / A.v;
-    return { P: A.P, T, v, s: A.s + cp * Math.log(T / A.T) };
+    return { P: A.P, T, v, s: A.s + sT(T) - sT(A.T) };
   }
-  return { P: A.P * (A.v / v) ** k, T: A.T * (A.v / v) ** (k - 1), v, s: A.s };
+  const T = solution.gas.isentropicT(A.T, v / A.v);
+  return { P: A.P * (A.v / v) * (T / A.T), T, v, s: A.s };
 }
 
 // Running signed {q, w, du} from the start of the process to `state`.
 export function energyAlong(solution, processId, state) {
-  const { cv, cp } = solution.gas;
+  const { u, h } = solution.gas;
   const pr = processById(solution, processId);
   const A = solution.states[pr.from];
-  const du = cv * (state.T - A.T);
+  const du = u(state.T) - u(A.T);
   if (pr.kind === "isentropic") return { q: 0, w: -du, du };
   if (pr.kind === "constV") return { q: du, w: 0, du };
-  return { q: cp * (state.T - A.T), w: A.P * (state.v - A.v), du };
+  return { q: h(state.T) - h(A.T), w: A.P * (state.v - A.v), du };
 }
 
 // Points for drawing, each {P, T, v, s, lambda}, n + 1 of them from state a to state b.

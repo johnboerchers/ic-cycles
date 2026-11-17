@@ -5,7 +5,7 @@
 // Also here: the playback helpers that move the playhead along the timeline, so that the
 // clock in main.js stays thin and this logic is tested.
 
-import { makeGas } from "./gas.js";
+import { gasFor } from "./gas.js";
 import { ratiosFor, solveCycle } from "./cycle.js";
 import { sideRatios } from "./compare.js";
 import { sampleProcess } from "./paths.js";
@@ -34,26 +34,40 @@ const EPS = 1e-9;
 // top of the cycle and the states at TDC against the axes.
 const LOG_HEADROOM = 1.25;
 
-// A cycle of one type from its stored (native) parameters and the shared inlet state and gas.
-export function solveCycleFor(type, params, shared) {
-  const gas = makeGas({ k: shared.k });
+// A cycle of one type from its stored (native) parameters and the shared inlet state. The gas
+// is constant specific heats at shared.k, or air with variable specific heats (state.specificHeats).
+export function solveCycleFor(type, params, shared, specificHeats = "constant") {
+  const gas = gasFor(specificHeats, shared.k);
   const ratios = ratiosFor(type, params, shared.T1, gas);
   return solveCycle({ type, P1: shared.P1, T1: shared.T1, ...ratios, gas });
 }
 
-function cycleEntry(id, label, solution, timelineOptions) {
-  const timeline = buildTimeline(solution, timelineOptions);
+// The same cycle with constant specific heats at k = 1.4, whatever the k slider says: the
+// cold-air reference of the variable-specific-heats mode (PHYSICS.md section 12.4).
+export const COLD_K = 1.4;
+export function solveColdCycleFor(type, params, shared) {
+  return solveCycleFor(type, params, { ...shared, k: COLD_K }, "constant");
+}
+
+function samplesOf(solution) {
   const samples = {};
   for (const pr of solution.processes) {
     if (!pr.degenerate) samples[pr.id] = sampleProcess(solution, pr.id);
   }
-  return { id, label, solution, timeline, samples };
+  return samples;
+}
+
+function cycleEntry(id, label, solution, timelineOptions) {
+  const timeline = buildTimeline(solution, timelineOptions);
+  return { id, label, solution, timeline, samples: samplesOf(solution) };
 }
 
 // Axis bounds covering every cycle in the list. Both P–v axes and the T axis start at 0 so
 // areas under the curves mean work and heat; s starts slightly left of 0 (SPEC section 6).
-export function axisBounds(cycles) {
-  const states = cycles.flatMap((c) => Object.values(c.solution.states));
+// With `withCold`, the cold-air reference cycles (variable specific heats, explore mode) count too.
+export function axisBounds(cycles, withCold = false) {
+  const solutions = cycles.flatMap((c) => (withCold && c.cold ? [c.solution, c.cold.solution] : [c.solution]));
+  const states = solutions.flatMap((sol) => Object.values(sol.states));
   const max = (key) => Math.max(...states.map((st) => st[key]));
   const min = (key) => Math.min(...states.map((st) => st[key]));
   const sHi = niceBound(Math.max(max("s"), MIN_S_SPAN));
@@ -72,9 +86,16 @@ export function axisBounds(cycles) {
 export function buildModel(state) {
   if (state.mode === "compare") return buildCompareModel(state);
   const { cycle, shared, params, options } = state;
-  const solution = solveCycleFor(cycle, params[cycle], shared);
-  const cycles = [cycleEntry(cycle, CONTENT.cycles[cycle].name, solution, { strokes: options.strokes })];
-  return { mode: "explore", cycles, bounds: axisBounds(cycles) };
+  const solution = solveCycleFor(cycle, params[cycle], shared, state.specificHeats);
+  const entry = cycleEntry(cycle, CONTENT.cycles[cycle].name, solution, { strokes: options.strokes });
+  // Variable specific heats: also the cold-air reference cycle, for the faint outline, the
+  // results line and \val{etaCold}. It has no timeline: nothing animates along it.
+  if (solution.gas.kind === "variable") {
+    const cold = solveColdCycleFor(cycle, params[cycle], shared);
+    entry.cold = { solution: cold, samples: samplesOf(cold) };
+  }
+  const cycles = [entry];
+  return { mode: "explore", cycles, bounds: axisBounds(cycles, options.coldCycle) };
 }
 
 // ------------------------------------------------------------------------------ compare mode
@@ -90,7 +111,7 @@ export const SIDES = ["a", "b"];
 // met; `cycles` holds only the sides that have a cycle (normally both).
 export function buildCompareModel(state) {
   const { shared, compare } = state;
-  const gas = makeGas({ k: shared.k });
+  const gas = gasFor(state.specificHeats, shared.k);
   const sides = SIDES.map((key) => {
     const side = compare[key];
     const ratios = sideRatios(compare.constraint, compare.shared, side, shared.P1, shared.T1, gas);

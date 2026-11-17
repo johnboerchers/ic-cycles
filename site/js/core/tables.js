@@ -11,7 +11,7 @@ export const addsHeat = (solution) => Number.isFinite(solution.metrics.eta);
 // One row of the state table for a gas state: P, T, v, u − u1 and s − s1.
 export function stateRow(solution, st) {
   const T1 = solution.states["1"].T;
-  return { P: st.P, T: st.T, v: st.v, du: solution.gas.cv * (st.T - T1), s: st.s };
+  return { P: st.P, T: st.T, v: st.v, du: solution.gas.u(st.T) - solution.gas.u(T1), s: st.s };
 }
 
 // Rows for the distinct states, in cycle order: x only where it is a state of its own.

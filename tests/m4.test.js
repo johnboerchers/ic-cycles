@@ -29,7 +29,9 @@ test("values: every name in the header of content.js has a value", () => {
     "T1 T2 Tx T3 T4 P1 P2 Px P3 P4 v1 v2 vx v3 v4 r rp rc rexp " +
     "k km1 R cv cp qin qout wnet eta mep w12 w34 qV qP wP wstroke"
   ).split(" ");
-  assert.deepEqual([...VALUE_NAMES].sort(), header.sort());
+  // Plus the names that only the variable-specific-heats text uses (PHYSICS.md section 12.5).
+  const extra = "u1 u2 ux u3 u4 h2 hx h3 etaCold".split(" ");
+  assert.deepEqual([...VALUE_NAMES].sort(), [...header, ...extra].sort());
   for (const cycle of ["otto", "diesel", "dual"]) {
     const v = texValues(solutionFor(cycle));
     for (const name of header) assert.equal(typeof v[name], "string", `${cycle} ${name}`);

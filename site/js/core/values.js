@@ -14,6 +14,9 @@ const QUANTITY = {
   k: "k", km1: "k", R: "k", cv: "cv", cp: "cp",
   qin: "q", qout: "q", wnet: "w", eta: "eta", mep: "mep",
   w12: "w", w34: "w", qV: "q", qP: "q", wP: "w", wstroke: "w",
+  // Variable specific heats (PHYSICS.md section 12.5): u and h at the states, and the efficiency
+  // of the same cycle with constant specific heats. All are computed, none is trimmed.
+  u1: "u", u2: "u", ux: "u", u3: "u", u4: "u", h2: "u", hx: "u", h3: "u", etaCold: "eta",
 };
 
 export const VALUE_NAMES = Object.keys(QUANTITY);
@@ -23,15 +26,19 @@ export const VALUE_NAMES = Object.keys(QUANTITY);
 const TYPED_ALWAYS = ["T1", "P1", "k", "km1", "R", "r"];
 const TYPED_BY_CYCLE = { otto: ["qin"], diesel: ["rc"], dual: ["rp", "rc"] };
 
-// The raw numbers behind each name, from a solved cycle (core/cycle.js).
-export function rawValues(solution) {
+// The raw numbers behind each name, from a solved cycle (core/cycle.js). `cold` is the same
+// cycle solved with constant specific heats and k = 1.4 (explore mode with variable specific
+// heats); without it etaCold is the cycle's own efficiency.
+export function rawValues(solution, cold) {
   const { states: s, gas, inputs, metrics: m, processes } = solution;
   const byRole = (role) => processes.find((p) => p.role === role);
   const heatV = byRole("heatAdditionV");
   const heatP = byRole("heatAdditionP");
   const out = {
     r: inputs.r, rp: inputs.rp, rc: inputs.rc, rexp: inputs.r / inputs.rc,
-    k: gas.k, km1: gas.k - 1, R: gas.R, cv: gas.cv, cp: gas.cp,
+    // For the variable gas k, cv and cp are those at T1 (the variable-mode text never uses them).
+    k: gas.kAt(s["1"].T), km1: gas.kAt(s["1"].T) - 1, R: gas.R,
+    cv: gas.cvAt(s["1"].T), cp: gas.cpAt(s["1"].T),
     qin: m.qin, qout: m.qout, wnet: m.wnet, eta: m.eta, mep: m.mep,
     // Work and heat as magnitudes (in/out is in the symbol, Çengel & Boles).
     w12: Math.abs(byRole("compression").w),
@@ -40,18 +47,21 @@ export function rawValues(solution) {
     qP: heatP ? heatP.q : 0,
     wP: heatP ? heatP.w : 0,
     wstroke: s["1"].P * (s["1"].v - s["2"].v),
+    etaCold: (cold ?? solution).metrics.eta,
   };
   for (const id of ["1", "2", "x", "3", "4"]) {
     out[`T${id}`] = s[id].T;
     out[`P${id}`] = s[id].P;
     out[`v${id}`] = s[id].v;
+    out[`u${id}`] = gas.u(s[id].T);
+    out[`h${id}`] = gas.h(s[id].T);
   }
   return out;
 }
 
 // name -> TeX string, ready to replace \val{name}.
-export function texValues(solution) {
-  const raw = rawValues(solution);
+export function texValues(solution, cold) {
+  const raw = rawValues(solution, cold);
   const typed = new Set([...TYPED_ALWAYS, ...(TYPED_BY_CYCLE[solution.type] || [])]);
   return Object.fromEntries(
     VALUE_NAMES.map((name) => [name, formatTex(QUANTITY[name], raw[name], { trim: typed.has(name) })]),

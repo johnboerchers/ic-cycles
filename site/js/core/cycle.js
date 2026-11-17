@@ -27,23 +27,26 @@ export const PROCESS_TABLE = {
   ],
 };
 
-// Native inputs of each cycle type -> the ratios {r, rp, rc}.
+// Native inputs of each cycle type -> the ratios {r, rp, rc}. One code path for both gases
+// (PHYSICS.md section 12.3): T2 comes from the gas's isentrope and rp from its internal energy.
 export function ratiosFor(type, params, T1, gas) {
   const { r } = params;
   if (type === "otto") {
-    const T2 = T1 * r ** (gas.k - 1);
-    return { r, rp: 1 + params.qin / (gas.cv * T2), rc: 1 };
+    const T2 = gas.isentropicT(T1, 1 / r);
+    return { r, rp: gas.TfromU(gas.u(T2) + params.qin) / T2, rc: 1 };
   }
   if (type === "diesel") return { r, rp: 1, rc: params.rc };
   return { r, rp: params.rp, rc: params.rc };
 }
 
-// Ratios for heat input qin, a fraction xv of it added at constant volume.
+// Ratios for heat input qin, a fraction xv of it added at constant volume. A heat addition of
+// zero is skipped, so that rp = 1 or rc = 1 holds exactly.
 export function ratiosFromHeat({ r, qin, xv }, T1, gas) {
-  const T2 = T1 * r ** (gas.k - 1);
-  const rp = 1 + (xv * qin) / (gas.cv * T2);
-  const rc = 1 + ((1 - xv) * qin) / (gas.cp * rp * T2);
-  return { r, rp, rc };
+  const T2 = gas.isentropicT(T1, 1 / r);
+  const qV = xv * qin, qP = (1 - xv) * qin;
+  const Tx = qV > 0 ? gas.TfromU(gas.u(T2) + qV) : T2;
+  const T3 = qP > 0 ? gas.TfromH(gas.h(Tx) + qP) : Tx;
+  return { r, rp: Tx / T2, rc: T3 / Tx };
 }
 
 // Closed-form thermal efficiency. With rp = rc = 1 the fraction is 0/0; the limit is Otto.
@@ -55,23 +58,23 @@ export function etaClosedForm({ r, rp, rc, k }) {
 
 // Signed process energies: q > 0 heat to the gas, w > 0 work by the gas, q - w = du.
 function processEnergy(kind, A, B, gas) {
-  const du = gas.cv * (B.T - A.T);
-  if (kind === "isentropic") return { q: 0, w: gas.cv * (A.T - B.T), du };
+  const du = gas.u(B.T) - gas.u(A.T);
+  if (kind === "isentropic") return { q: 0, w: -du, du };
   if (kind === "constV") return { q: du, w: 0, du };
-  return { q: gas.cp * (B.T - A.T), w: A.P * (B.v - A.v), du };
+  return { q: gas.h(B.T) - gas.h(A.T), w: A.P * (B.v - A.v), du };
 }
 
 export function solveCycle({ type, P1, T1, r, rp, rc, gas }) {
-  const { k, R, cv, cp } = gas;
+  const { R, sT } = gas;
   const v1 = (R * T1) / P1;
   const v2 = v1 / r;
-  const T2 = T1 * r ** (k - 1);
-  const P2 = P1 * r ** k;
+  const T2 = gas.isentropicT(T1, 1 / r);
+  const P2 = (R * T2) / v2;
   const Tx = rp * T2, Px = rp * P2, vx = v2;
   const T3 = rc * Tx, P3 = Px, v3 = rc * vx;
-  const T4 = T3 * (v3 / v1) ** (k - 1), P4 = P3 * (v3 / v1) ** k, v4 = v1;
-  const sx = cv * Math.log(Tx / T2);
-  const s3 = sx + cp * Math.log(T3 / Tx);
+  const T4 = gas.isentropicT(T3, v1 / v3), P4 = (R * T4) / v1, v4 = v1;
+  const sx = sT(Tx) - sT(T2) - R * Math.log(Tx / T2);
+  const s3 = sx + sT(T3) - sT(Tx);
   const states = {
     1: { P: P1, T: T1, v: v1, s: 0 },
     2: { P: P2, T: T2, v: v2, s: 0 },
