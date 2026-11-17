@@ -8,7 +8,8 @@ fails, the JavaScript is wrong.
 ## 1. Assumptions and constants
 
 Cold-air-standard cycles: a fixed mass of ideal gas, internally reversible processes, constant
-specific heats.
+specific heats. This is the default model. Section 12 adds a second one, air with
+temperature-dependent specific heats; it says what changes, and the rest applies to both.
 
 | Quantity | Symbol | Unit (used everywhere, internally and on screen) |
 |---|---|---|
@@ -286,7 +287,8 @@ All modules are pure ES modules with no DOM access, so they run under Node for t
 }
 ```
 
-Key names and shapes match the fixture so tests can compare objects field by field.
+Key names and shapes match the fixture so tests can compare objects field by field. Section
+12.2 extends the gas object so that the same functions serve both gas models.
 
 ## 10. The fixture and the tests to write
 
@@ -329,6 +331,8 @@ Compare mode: at r = 12 and qin = 1000, Otto 62.99 %, dual (xv = 0.5) 61.84 %, D
 At Pmax = 7000 kPa and qin = 1000, Diesel 65.29 % (r = 20.79), dual 63.69 % (r = 13.56), Otto
 59.88 % (r = 9.81).
 
+Section 12.7 describes the second fixture, for variable specific heats.
+
 ## 11. Number formatting
 
 One module, `core/format.js`, formats every number shown. No `toFixed` calls scattered in views.
@@ -353,3 +357,152 @@ typed in**, trim trailing zeros and a trailing decimal point so they read as typ
 for every cycle, plus `qin` for Otto, `rc` for Diesel and dual, and `rp` for dual. Every
 computed value keeps its full format, so a card agrees with the tables and tiles beside it:
 `731.0`, `0.8610`, `65.0\%`. `eta` is a TeX-safe percentage such as `56.5\%`.
+
+## 12. Variable specific heats (air standard)
+
+A second gas model, chosen with `state.specificHeats = "variable"`; the default stays
+`"constant"` (sections 1–11). It is the textbook's air-standard analysis: still a fixed mass
+of ideal gas and internally reversible processes, but the specific heats of air depend on
+temperature. Everything in sections 2–8 still holds (the same states, processes, timeline,
+slots, piston motion and frames) except the closed forms that assume a constant k. The ratios
+r, rp, rc keep their meaning, and because the gas is still ideal, `Tx = rp·T2` and
+`T3 = rc·Tx` remain exact.
+
+### 12.1 Properties of air
+
+Air is one ideal gas with `R = 0.287` kJ/kg·K (unchanged) and properties from a NASA
+7-coefficient polynomial. The coefficients are those of N2, O2 and Ar from the GRI-Mech 3.0
+data (as distributed with Cantera), weighted by mole fraction (0.7808, 0.2095, 0.0097), with
+a6 shifted so that h = 0 at 0 K (the zero of the air table), and the upper row's a6 and a7
+re-anchored so that h and s° are continuous at 1000 K. `tools/reference_cycles.py` builds them.
+Use these values verbatim; they are also in the fixture under `air.low` and `air.high`:
+
+```js
+// [a1, a2, a3, a4, a5, a6, a7]: AIR_LOW for T <= 1000 K, AIR_HIGH for T > 1000 K
+const AIR_LOW = [3.3922816090200003, 0.00047173829780000013, -1.0314739665050002e-06, 2.376663590645e-09, -1.229380909685e-12, 12.958819478564692, 3.893083723035];
+const AIR_HIGH = [2.9970621894800002, 0.0014725191250700002, -6.026600779555001e-07, 1.227217539765e-10, -9.8132542451e-15, 84.42179061287595, 5.854397014870135];
+```
+
+For 200 K ≤ T ≤ 3500 K, with `a = AIR_LOW` when T ≤ 1000 K and `AIR_HIGH` otherwise:
+
+| Property | Formula |
+|---|---|
+| cp(T) | R·(a1 + a2·T + a3·T² + a4·T³ + a5·T⁴) |
+| h(T) | R·[T·(a1 + a2·T/2 + a3·T²/3 + a4·T³/4 + a5·T⁴/5) + a6] |
+| s°(T) | R·(a1·ln T + a2·T + a3·T²/2 + a4·T³/3 + a5·T⁴/4 + a7) |
+| cv(T), u(T), k(T) | cp − R, h − R·T, cp/cv |
+
+Outside [200, 3500] K, cp is held at its value at the nearer edge `Tb`:
+`h(T) = h(Tb) + cp(Tb)·(T − Tb)` and `s°(T) = s°(Tb) + cp(Tb)·ln(T/Tb)`. So every function is
+defined and continuous for all T > 0, and u, h and s° increase with T. Temperatures below
+250 K never occur; above 3500 K happens only at the far ends of the sliders, and the page says
+so (SPEC section 19).
+
+Entropy between two states: `s_b − s_a = s°(Tb) − s°(Ta) − R·ln(Pb/Pa)`. Along an isentrope,
+`ψ(Tb) = ψ(Ta) − R·ln(vb/va)` with `ψ(T) = s°(T) − R·ln T` (and `ψ' = cv/T > 0`). This is the
+air table's relative-specific-volume method: `v_r ∝ exp(−ψ/R)`.
+
+Spot values: cp = 1.0031, 1.1422, 1.2502 kJ/kg·K and k = 1.4008, 1.3356, 1.2980 at 300, 1000
+and 2000 K; u(300 K) = 214.33 and h(1000 K) = 1046.28 kJ/kg. These agree with the air table in
+Çengel & Boles to within a fraction of a percent.
+
+### 12.2 The gas interface
+
+Both gas models expose the same members, and the core uses only these; no formula multiplies a
+temperature difference by `gas.cv` any more.
+
+| Member | Constant gas, `makeGas({k, R})` | Variable gas, `makeAir()` |
+|---|---|---|
+| `kind` | `"constant"` | `"variable"` |
+| `R` | R | 0.287 |
+| `k`, `cv`, `cp` | numbers, as now | absent |
+| `cpAt(T)`, `cvAt(T)`, `kAt(T)` | the constants | section 12.1 |
+| `u(T)`, `h(T)` | cv·T, cp·T | section 12.1 |
+| `sT(T)` | cp·ln T | s°(T) |
+| `TfromU(u)`, `TfromH(h)` | u/cv, h/cp | solved |
+| `isentropicT(Ta, vRatio)` | Ta·vRatio^(1−k) | solved: ψ(T) = ψ(Ta) − R·ln(vRatio) |
+
+`vRatio` is `vb/va`. Solving: Newton's method on the increasing function (derivatives
+`u' = cv`, `h' = cp`, `ψ' = cv/T`), starting from the constant-k estimate with k = 1.4; stop
+when the step is below `1e-12·T`; keep a bracket (start `[1, 1e5]` K) and take a bisection
+step whenever a Newton step would leave it. The Python reference deliberately uses plain
+bisection, so the two implementations check each other.
+
+### 12.3 What changes in the cycle
+
+| Item | Constant k (sections 2–7) | General form, used for both gases |
+|---|---|---|
+| T2 | T1·r^(k−1) | `isentropicT(T1, 1/r)` |
+| P2 | P1·r^k | R·T2/v2 |
+| T4 | T3·(v3/v1)^(k−1) | `isentropicT(T3, v1/v3)` |
+| P4 | P3·(v3/v1)^k | R·T4/v1 |
+| sx | cv·ln(Tx/T2) | sT(Tx) − sT(T2) − R·ln(Tx/T2) |
+| s3 | sx + cp·ln(T3/Tx) | sx + sT(T3) − sT(Tx) |
+| Δu of any process | cv·(Tb − Ta) | u(Tb) − u(Ta) |
+| q, constant pressure | cp·(Tb − Ta) | h(Tb) − h(Ta) |
+| Otto rp (`ratiosFor`) | 1 + qin/(cv·T2) | `TfromU(u(T2) + qin)/T2` |
+| `ratiosFromHeat` | section 7 | `Tx = TfromU(u(T2) + xv·qin)`, `rp = Tx/T2`, `T3 = TfromH(h(Tx) + (1 − xv)·qin)`, `rc = T3/Tx` |
+| `solveRForPmax` | section 7 | P3(r) = P1·r·Tx(r)/T1 with Tx as above; bisect on `[1, Pmax/P1]`; `null` if P3(1) > Pmax |
+
+In `ratiosFromHeat`, skip a solve whose heat is zero, so that `rp = 1` or `rc = 1` exactly.
+With the constant gas, every general form reduces to its closed form, and the existing fixture
+must keep passing at 1e-9. Implement the general form once rather than two code paths.
+Process energies and metrics are otherwise as section 3; `etaClosedForm` applies to the
+constant gas only.
+
+Paths (section 4), general form:
+
+- constV: T linear in λ, `P = Pa·T/Ta`, `s = sa + sT(T) − sT(Ta) − R·ln(T/Ta)`
+- constP: v linear in λ, `T = Ta·v/va`, `s = sa + sT(T) − sT(Ta)`
+- isentropic: v linear in λ, `T = isentropicT(Ta, v/va)`, `P = Pa·(va/v)·(T/Ta)`, `s = sa`
+
+`energyAlong`: `du = u(T) − u(Ta)`; for constP `q = h(T) − h(Ta)`. The state table's
+`u − u1` is `u(T) − u(T1)`.
+
+### 12.4 The cold-air reference cycle
+
+In explore mode with variable specific heats, the model also solves the same cycle (same type
+and native parameters, same T1 and P1) with the constant gas at k = 1.4, whatever the hidden k
+slider says: the "cold" cycle. It feeds the faint reference outline, the cold-air line in the
+results, and `\val{etaCold}`. Compare mode has no cold cycle.
+
+### 12.5 Equation values
+
+`core/values.js` gains the names `u1 u2 ux u3 u4` (u at each state), `h2 hx h3` and `etaCold`.
+u and h use the `u` format (1 decimal); `etaCold` uses `eta`; all are computed, so none is
+trimmed. The signature becomes `texValues(solution, cold)`, with
+`etaCold = (cold ?? solution).metrics.eta`. Every name must exist for both gases: for the
+variable gas, `k`, `km1`, `cv` and `cp` are evaluated at T1 (the variable-mode text never uses
+them).
+
+### 12.6 Efficiency curves
+
+The closed form serves the constant gas only. For the variable gas, each curve point is a
+complete cycle solved at that r, holding fixed what the chart holds fixed: Otto's qin, Diesel's
+rc, the dual cycle's rp and rc (explore mode), or the "hold equal" quantities of section 7
+(compare mode). Skip points where rc ≥ r, where state 3 would lie past BDC.
+
+### 12.7 The second fixture
+
+`tests/fixtures/reference-variable.json`, written by the same `npm run fixture`. Sections:
+`air` (the coefficients; property samples from 150 to 6000 K, including both extended ends;
+`fromU`, `fromH` and `isentropes` samples), `cycles` (ten cases, each with `stateProps`, the
+properties at each state, and `cold`, the k = 1.4 reference), `compare` (four cases),
+`efficiency` (a grid), and `timelines` (seven cases, including the strokes and forced slots).
+Same tolerance as section 10.
+
+Reference values (P1 = 100 kPa, T1 = 300 K unless noted):
+
+| Case | T2 | T3 | T4 | P3 | qin | qout | wnet | η | MEP | η, cold air |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Otto, r = 8, qin = 800 | 672.6 | 1592.9 | 805.4 | 4248 | 800.0 | 382.5 | 417.5 | 52.18 % | 554.1 | 56.47 % |
+| the same at T1 = 290 K | 651.9 | 1575.7 | 795.4 | 4347 | 800.0 | 381.6 | 418.4 | 52.30 % | 574.6 | 56.47 % |
+| Diesel, r = 18, rc = 2 | 898.0 | 1796.0 | 886.7 | 5388 | 1066.9 | 449.4 | 617.6 | 57.88 % | 759.5 | 63.16 % |
+| Dual, r = 16, rp = rc = 1.5 | 862.1 | 1939.8 | 913.4 | 6897 | 1161.8 | 471.6 | 690.1 | 59.40 % | 855.0 | 64.97 % |
+
+The second row is the textbook's air-table example (r = 8, 290 K, 800 kJ/kg); the air-table
+solution gives 52.3 % and about 1575 K. Otto at r = 8 now depends on qin: 400 kJ/kg 53.73 %,
+800 kJ/kg 52.18 %, 1600 kJ/kg 50.06 %. Compare mode at r = 12 and qin = 1000: Otto 57.84 %,
+dual (xv = 0.5) 56.86 %, Diesel 51.31 %. At Pmax = 7000 kPa: Diesel 61.30 % (r = 21.879), dual
+59.93 % (r = 14.862), Otto 56.82 % (r = 11.184). Both rankings, and so the compare takeaways in
+`content.js`, hold for either gas.

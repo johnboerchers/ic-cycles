@@ -3,12 +3,15 @@
 // processes, and every equation must have both a symbolic and a numeric form.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CONTENT } from "../site/js/content/content.js";
+import { CONTENT, VARIABLE } from "../site/js/content/content.js";
 
 const VALUE_NAMES = new Set((
   "T1 T2 Tx T3 T4 P1 P2 Px P3 P4 v1 v2 vx v3 v4 r rp rc rexp " +
   "k km1 R cv cp qin qout wnet eta mep w12 w34 qV qP wP wstroke"
 ).split(" "));
+
+// Extra names that exist only with variable specific heats (VARIABLE in content.js).
+const VARIABLE_NAMES = new Set([...VALUE_NAMES, ..."u1 u2 ux u3 u4 h2 hx h3 etaCold".split(" ")]);
 
 const PROCESS_IDS = {
   otto: ["1-2", "2-3", "3-4", "4-1"],
@@ -48,7 +51,7 @@ test("inline math delimiters are balanced", () => {
   }
 });
 
-test("equations have a symbolic and a numeric form", () => {
+function checkEquations(root, label) {
   const visit = (node, where) => {
     if (Array.isArray(node)) return node.forEach((n, i) => visit(n, `${where}[${i}]`));
     if (!node || typeof node !== "object") return;
@@ -63,8 +66,10 @@ test("equations have a symbolic and a numeric form", () => {
     }
     for (const [k, v] of Object.entries(node)) visit(v, `${where}.${k}`);
   };
-  visit(CONTENT, "CONTENT");
-});
+  visit(root, label);
+}
+
+test("equations have a symbolic and a numeric form", () => checkEquations(CONTENT, "CONTENT"));
 
 for (const [type, ids] of Object.entries(PROCESS_IDS)) {
   test(`${type}: content covers exactly its processes`, () => {
@@ -82,5 +87,39 @@ test("stroke cards and compare texts exist", () => {
   for (const key of ["independent", "same-r-qin", "same-pmax-qin"]) {
     assert.equal(typeof CONTENT.compare[key].label, "string");
     assert.equal(typeof CONTENT.compare[key].takeaway, "string");
+  }
+});
+
+// ------------------------------------------------- variable specific heats (VARIABLE)
+
+const CARD_FIELDS = new Set(["title", "what", "engine", "energy", "notice", "trends", "equations", "text"]);
+
+test("variable: every \\val{name} refers to a value that exists in that mode", () => {
+  for (const s of strings(VARIABLE)) {
+    for (const [, name] of s.matchAll(/\\val\{(\w+)\}/g)) {
+      assert.ok(VARIABLE_NAMES.has(name), `unknown \\val{${name}} in: ${s}`);
+    }
+    assert.equal((s.match(/\$/g) || []).length % 2, 0, `odd number of $ in: ${s}`);
+  }
+});
+
+test("variable: equations have a symbolic and a numeric form", () => checkEquations(VARIABLE, "VARIABLE"));
+
+test("variable: overrides name existing cards and card fields", () => {
+  for (const [type, cycle] of Object.entries(VARIABLE.cycles)) {
+    assert.ok(type in CONTENT.cycles, `unknown cycle ${type}`);
+    const cards = { intro: cycle.intro, summary: cycle.summary, ...(cycle.processes || {}) };
+    for (const [id, card] of Object.entries(cards)) {
+      if (!card) continue;
+      if (id !== "intro" && id !== "summary") {
+        assert.ok(PROCESS_IDS[type].includes(id), `${type}: no process ${id}`);
+      }
+      for (const field of Object.keys(card)) assert.ok(CARD_FIELDS.has(field), `${type} ${id}: unknown field ${field}`);
+      for (const eq of card.equations || []) assert.ok(eq.tex && eq.num, `${type} ${id}: equation without tex or num`);
+    }
+  }
+  assert.ok(VARIABLE.model.points.length > 0 && VARIABLE.model.caveats.length > 0);
+  for (const sym of VARIABLE.symbols) {
+    for (const key of ["tex", "name", "unit"]) assert.equal(typeof sym[key], "string");
   }
 });

@@ -16,8 +16,8 @@ with what to look at and try, not with how the code works.
 | `site/` | The website. Only this folder is published |
 | `site/js/core/` | Pure model code, no DOM. Tested under Node |
 | `site/js/content/content.js` | All teaching text and equations. Already written: wire it in, do not rewrite it |
-| `tests/` | `node:test` files. `tests/fixtures/reference-cycles.json` is the oracle for the model |
-| `tools/reference_cycles.py` | Independent Python reference that generates the fixture |
+| `tests/` | `node:test` files. `tests/fixtures/` holds the oracles for the model: `reference-cycles.json` (constant specific heats) and `reference-variable.json` (variable specific heats) |
+| `tools/reference_cycles.py` | Independent Python reference that generates both fixtures |
 
 ## How to work here
 
@@ -35,8 +35,8 @@ with what to look at and try, not with how the code works.
   library and it is vendored into `site/vendor/katex/` (milestone M4).
 - **`site/js/core/` stays pure**: no `window`, no `document`. Anything with logic worth testing
   belongs there, and views stay thin.
-- **The fixture is the oracle.** Implement `docs/PHYSICS.md` exactly. If a test against the
-  fixture fails, the JavaScript is wrong. Never edit the fixture by hand, loosen a tolerance or
+- **The fixtures are the oracle.** Implement `docs/PHYSICS.md` exactly. If a test against a
+  fixture fails, the JavaScript is wrong. Never edit a fixture by hand, loosen a tolerance or
   skip a test to get to green. If you believe the reference itself is wrong, stop and report.
 - **Notation is Çengel & Boles** (SPEC section 3): P, v, T, s, k, r, r_c, MEP, states
   1-2-x-3-4, heat and work as magnitudes with in/out subscripts. SI units only.
@@ -54,7 +54,7 @@ with what to look at and try, not with how the code works.
 ```bash
 npm test          # all tests (Node's built-in runner, no install needed)
 npm run serve     # serve site/ at http://localhost:8000
-npm run fixture   # regenerate the fixture from the Python reference (rarely needed)
+npm run fixture   # regenerate both fixtures from the Python reference (rarely needed)
 ```
 
 ## Verifying

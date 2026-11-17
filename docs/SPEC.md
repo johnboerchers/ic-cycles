@@ -24,13 +24,13 @@ Do not reopen these.
 | Topic | Decision |
 |---|---|
 | Cycles | Otto, Diesel, dual |
-| Model | Cold-air-standard, constant specific heats, adjustable k |
+| Model | Cold-air-standard, constant specific heats, adjustable k; variable specific heats (air standard) as a switch, added later (section 19) |
 | Notation | Çengel & Boles: P, v, T, s, k, r, r_c, MEP; dual cycle states 1-2-x-3-4 |
 | Units | SI only: kPa, K, m³/kg, kJ/kg |
 | Engine view | The ideal closed cycle by default; a switch adds intake and exhaust strokes |
 | Displays | P–v, T–s, state table, results, energy bookkeeping, efficiency curves |
 | Learning features | Guided step-through with equations; compare two cycles |
-| Not wanted (for now) | Quiz questions, presets, shareable links, English units, variable specific heats |
+| Not wanted (for now) | Quiz questions, presets, shareable links, English units |
 
 ## 3. Notation on screen
 
@@ -351,6 +351,53 @@ Rules:
 
 ## 18. Out of scope
 
-Variable specific heats, English units, quiz questions, presets, shareable URLs, saving state,
+English units, quiz questions, presets, shareable URLs, saving state,
 Atkinson and Miller cycles, real-engine effects (friction, heat loss, valve timing), sound,
 analytics, any server.
+
+## 19. Variable specific heats
+
+A second model for the gas: the air-standard analysis, with specific heats that depend on
+temperature (PHYSICS.md section 12). The page still loads with constant specific heats and
+looks exactly as before; this is a switch.
+
+**Control.** At the top of the Parameters panel, a segmented control labeled "Specific heats"
+with two options, "Constant (cold air)" and "Variable (air)". The same control sits at the top
+of the compare panel. Both set `state.specificHeats`, which applies to every cycle in both
+modes. Switching keeps the playhead's slot and τ, like any parameter change.
+
+**When the specific heats are variable:**
+
+- **k.** The k slider, its number box and the k chips are hidden; the value is kept for when
+  the user switches back. In their place, a read-only line: "*k* = *c*<sub>p</sub>/*c*<sub>v</sub>
+  at the current temperature: 1.368", three decimals, updated in `tick` from the gas at the
+  moving state point. In compare mode there is no such line.
+- **Cold-air cycle.** Under the k line, a switch "Show the cold-air cycle", on by default
+  (`options.coldCycle`). In explore mode, while it is on, both diagrams also draw the same cycle
+  with constant specific heats and k = 1.4 (PHYSICS.md section 12.4): a 1.5 px dashed line in
+  muted ink, under the real cycle, with no markers, state labels, arrows or dot. A key in the
+  diagram's top-right corner, styled like the compare-mode key: a dashed sample and
+  "cold air, *k* = 1.4". The axis bounds include it while it is shown. Area shading, the piston
+  strip, dragging and hover ignore it. Its point is the gap: with the same heat input, the real
+  cycle peaks lower and encloses less area.
+- **Results.** Under the efficiency tile's Carnot line, in the same muted style:
+  "Cold-air standard (*k* = 1.4): 56.5 %". When *T*<sub>max</sub> exceeds 3500 K, a muted note
+  under the tiles: "Above 3500 K the air data are extended, and real air would dissociate."
+- **Process card, Symbols and Model.** Their text comes from `contentFor("variable")`:
+  `VARIABLE` in `content.js` merged over `CONTENT` by the rules in the comment above
+  `VARIABLE`. The numbers come from `texValues(solution, cold)` (PHYSICS.md section 12.5).
+- **State table.** Same columns; u − u₁ now comes from the air data.
+- **Efficiency chart** (PHYSICS.md section 12.6). Explore mode: the bold curve is the current
+  cycle with variable specific heats, labeled by what it holds fixed: *q*<sub>in</sub> for
+  Otto ("*q*<sub>in</sub> = 800"), *r*<sub>c</sub> for Diesel, "Dual" for the dual cycle. One
+  gray reference curve, "cold air, *k* = 1.4": the same cycle with constant specific heats.
+  For Otto, two more gray curves with variable specific heats at *q*<sub>in</sub> = 400 and
+  1600 kJ/kg, labeled "*q*<sub>in</sub> = 400" and "*q*<sub>in</sub> = 1600", leaving out one
+  within 1e-6 of the current value. These show that Otto efficiency now depends on the heat
+  input. Compare mode: each side's curve computed with variable specific heats. Markers and
+  dragging work as before.
+- **Compare mode.** Both sides use the chosen model. The results table and the takeaway text
+  are unchanged; their rankings hold for either model.
+
+Everything else (engine, energy panel, strokes, shading, log axes, guided tour, keyboard,
+layouts, themes) works the same in both modes. The new control must fit the phone layout.

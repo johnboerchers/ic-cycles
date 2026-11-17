@@ -2,9 +2,11 @@
 """
 Independent reference implementation of the model described in docs/PHYSICS.md.
 
-Writes tests/fixtures/reference-cycles.json, which is the oracle for the
-JavaScript core in site/js/core. It is deliberately a separate implementation in
-another language, so the two check each other.
+Writes the oracles for the JavaScript core in site/js/core:
+  tests/fixtures/reference-cycles.json    constant specific heats (cold-air standard)
+  tests/fixtures/reference-variable.json  air with temperature-dependent specific heats
+It is deliberately a separate implementation in another language, so the two check each
+other.
 
 Run from the repo root:
 
@@ -163,6 +165,260 @@ def check_cycle(sol):
     assert math.isclose(st["4"]["T"], i["rp"] * i["rc"] ** g["k"] * i["T1"], rel_tol=1e-12)
 
 
+# ---------------------------------------------- variable specific heats: air
+#
+# Air whose specific heats depend on temperature (PHYSICS.md section 12). Still an ideal gas
+# and still a fixed mass of air; only cp, cv and k now vary with T.
+#
+# Species data: NASA 7-coefficient polynomials of the GRI-Mech 3.0 thermodynamic data, as
+# distributed with Cantera (data/gri30.yaml). A row is [a1 .. a7]:
+#   cp/R = a1 + a2 T + a3 T^2 + a4 T^3 + a5 T^4
+#   h/R  = T (a1 + a2 T/2 + a3 T^2/3 + a4 T^3/4 + a5 T^4/5) + a6
+#   s°/R = a1 ln T + a2 T + a3 T^2/2 + a4 T^3/3 + a5 T^4/4 + a7
+# The first row is used up to 1000 K, the second above.
+NASA7 = {
+    "N2": ([3.298677, 1.4082404e-03, -3.963222e-06, 5.641515e-09, -2.444854e-12, -1020.8999, 3.950372],
+           [2.92664, 1.4879768e-03, -5.68476e-07, 1.0097038e-10, -6.753351e-15, -922.7977, 5.980528]),
+    "O2": ([3.78245636, -2.99673416e-03, 9.84730201e-06, -9.68129509e-09, 3.24372837e-12, -1063.94356, 3.65767573],
+           [3.28253784, 1.48308754e-03, -7.57966669e-07, 2.09470555e-10, -2.16717794e-14, -1088.45772, 5.45323129]),
+    "Ar": ([2.5, 0.0, 0.0, 0.0, 0.0, -745.375, 4.366],
+           [2.5, 0.0, 0.0, 0.0, 0.0, -745.375, 4.366]),
+}
+# Dry air by mole fraction; argon stands in for the 0.04 % of CO2 and trace gases.
+AIR_X = {"N2": 0.7808, "O2": 0.2095, "Ar": 0.0097}
+# H°(298.15 K) - H°(0 K) in kJ/mol (JANAF). Adding it puts h = 0 at 0 K, the zero of the air table.
+H298_H0 = {"N2": 8.670, "O2": 8.683, "Ar": 6.197}
+RU = 8.314462618e-3          # kJ/(mol.K)
+T_MID = 1000.0               # where the two coefficient rows meet (T <= T_MID uses the first)
+T_LO, T_HI = 200.0, 3500.0   # outside [T_LO, T_HI], cp is held at its value at the nearer edge
+
+
+def _cp_R(a, T):
+    return a[0] + a[1] * T + a[2] * T**2 + a[3] * T**3 + a[4] * T**4
+
+
+def _h_R(a, T):
+    return T * (a[0] + a[1] * T / 2 + a[2] * T**2 / 3 + a[3] * T**3 / 4 + a[4] * T**4 / 5) + a[5]
+
+
+def _s_R(a, T):
+    return a[0] * math.log(T) + a[1] * T + a[2] * T**2 / 2 + a[3] * T**3 / 3 + a[4] * T**4 / 4 + a[6]
+
+
+def _air_rows():
+    """Air as one NASA-7 'species': mole-fraction-weighted rows, a6 shifted so that h = 0 at
+    0 K, and the upper row's a6 and a7 re-anchored so h and s° are continuous at 1000 K."""
+    low = [sum(AIR_X[s] * NASA7[s][0][i] for s in AIR_X) for i in range(7)]
+    high = [sum(AIR_X[s] * NASA7[s][1][i] for s in AIR_X) for i in range(7)]
+    shift = sum(AIR_X[s] * H298_H0[s] for s in AIR_X) / RU
+    low[5] += shift
+    high[5] += shift
+    high[5] += _h_R(low, T_MID) - _h_R(high, T_MID)
+    high[6] += _s_R(low, T_MID) - _s_R(high, T_MID)
+    return low, high
+
+
+AIR_LOW, AIR_HIGH = _air_rows()
+
+
+def _row(T):
+    return AIR_LOW if T <= T_MID else AIR_HIGH
+
+
+def air_cp(T):
+    Tc = min(max(T, T_LO), T_HI)
+    return R_AIR * _cp_R(_row(Tc), Tc)
+
+
+def air_cv(T):
+    return air_cp(T) - R_AIR
+
+
+def air_h(T):
+    """kJ/kg, zero at 0 K."""
+    if T < T_LO:
+        return air_h(T_LO) + air_cp(T_LO) * (T - T_LO)
+    if T > T_HI:
+        return air_h(T_HI) + air_cp(T_HI) * (T - T_HI)
+    return R_AIR * _h_R(_row(T), T)
+
+
+def air_u(T):
+    return air_h(T) - R_AIR * T
+
+
+def air_sT(T):
+    """s°(T) in kJ/(kg.K): the temperature part of the entropy, s = s°(T) - R ln(P/P0)."""
+    if T < T_LO:
+        return air_sT(T_LO) + air_cp(T_LO) * math.log(T / T_LO)
+    if T > T_HI:
+        return air_sT(T_HI) + air_cp(T_HI) * math.log(T / T_HI)
+    return R_AIR * _s_R(_row(T), T)
+
+
+def air_psi(T):
+    """s°(T) - R ln T: along an isentrope psi(T) + R ln v stays constant."""
+    return air_sT(T) - R_AIR * math.log(T)
+
+
+def _invert(f, target):
+    """Bisection for an increasing f (deliberately not Newton: the JavaScript uses Newton)."""
+    lo, hi = 1.0, 1.0e5
+    for _ in range(300):
+        mid = 0.5 * (lo + hi)
+        if f(mid) < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def air_T_from_u(u):
+    return _invert(air_u, u)
+
+
+def air_T_from_h(h):
+    return _invert(air_h, h)
+
+
+def air_T_isentropic(Ta, v_ratio):
+    """Temperature after an isentropic change of volume by v_ratio = v_b / v_a."""
+    return _invert(air_psi, air_psi(Ta) - R_AIR * math.log(v_ratio))
+
+
+def make_air():
+    return {"kind": "variable", "R": R_AIR}
+
+
+def ratios_for_air(cycle_type, params, T1):
+    r = params["r"]
+    if cycle_type == "otto":
+        T2 = air_T_isentropic(T1, 1.0 / r)
+        T3 = air_T_from_u(air_u(T2) + params["qin"])
+        return {"r": r, "rp": T3 / T2, "rc": 1.0}
+    if cycle_type == "diesel":
+        return {"r": r, "rp": 1.0, "rc": params["rc"]}
+    return {"r": r, "rp": params["rp"], "rc": params["rc"]}
+
+
+def _heat_split_temps(r, qin, xv, T1):
+    T2 = air_T_isentropic(T1, 1.0 / r)
+    Tx = air_T_from_u(air_u(T2) + xv * qin) if xv * qin > 0 else T2
+    T3 = air_T_from_h(air_h(Tx) + (1.0 - xv) * qin) if (1.0 - xv) * qin > 0 else Tx
+    return T2, Tx, T3
+
+
+def ratios_from_heat_air(r, qin, xv, T1):
+    T2, Tx, T3 = _heat_split_temps(r, qin, xv, T1)
+    return {"r": r, "rp": Tx / T2 if Tx != T2 else 1.0, "rc": T3 / Tx if T3 != Tx else 1.0}
+
+
+def solve_r_for_pmax_air(Pmax, qin, xv, P1, T1):
+    def f(r):
+        _, Tx, _ = _heat_split_temps(r, qin, xv, T1)
+        return P1 * r * Tx / T1 - Pmax          # P3 = Px = R Tx / v2 = P1 r Tx / T1
+    lo, hi = 1.0, Pmax / P1
+    if f(lo) > 0.0:
+        raise ValueError("Pmax too low for this heat input")
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if f(mid) > 0.0:
+            hi = mid
+        else:
+            lo = mid
+    return 0.5 * (lo + hi)
+
+
+def solve_cycle_air(cycle_type, P1, T1, r, rp, rc):
+    R = R_AIR
+    v1 = R * T1 / P1
+    v2 = v1 / r
+    T2 = air_T_isentropic(T1, 1.0 / r)
+    P2 = R * T2 / v2
+    Tx, Px, vx = rp * T2, rp * P2, v2
+    T3, P3, v3 = rc * Tx, Px, rc * vx
+    T4 = air_T_isentropic(T3, v1 / v3)
+    P4, v4 = R * T4 / v1, v1
+    sx = air_sT(Tx) - air_sT(T2) - R * math.log(Tx / T2)
+    s3 = sx + air_sT(T3) - air_sT(Tx)
+    states = {
+        "1": {"P": P1, "T": T1, "v": v1, "s": 0.0},
+        "2": {"P": P2, "T": T2, "v": v2, "s": 0.0},
+        "x": {"P": Px, "T": Tx, "v": vx, "s": sx},
+        "3": {"P": P3, "T": T3, "v": v3, "s": s3},
+        "4": {"P": P4, "T": T4, "v": v4, "s": s3},
+    }
+    processes = []
+    for pid, kind, role, a, b in PROCESS_TABLE[cycle_type]:
+        A, B = states[a], states[b]
+        du = air_u(B["T"]) - air_u(A["T"])
+        if kind == "isentropic":
+            q, w = 0.0, -du
+        elif kind == "constV":
+            q, w = du, 0.0
+        else:
+            q, w = air_h(B["T"]) - air_h(A["T"]), A["P"] * (B["v"] - A["v"])
+        degenerate = role.startswith("heatAddition") and abs(B["T"] - A["T"]) <= EPS * A["T"]
+        processes.append({"id": pid, "kind": kind, "role": role, "from": a, "to": b,
+                          "q": q, "w": w, "du": du, "degenerate": degenerate})
+    qin = sum(p["q"] for p in processes if p["q"] > 0.0)
+    qout = -sum(p["q"] for p in processes if p["q"] < 0.0)
+    wnet = sum(p["w"] for p in processes)
+    metrics = {
+        "qin": qin, "qout": qout, "wnet": wnet,
+        "eta": wnet / qin, "mep": wnet / (v1 - v2),
+        "Tmax": T3, "Pmax": P3, "etaCarnot": 1.0 - T1 / T3,
+        "win": -sum(p["w"] for p in processes if p["w"] < 0.0),
+        "wout": sum(p["w"] for p in processes if p["w"] > 0.0),
+    }
+    sol = {"type": cycle_type, "gas": make_air(),
+           "inputs": {"P1": P1, "T1": T1, "r": r, "rp": rp, "rc": rc},
+           "states": states, "processes": processes, "metrics": metrics}
+    check_cycle_air(sol)
+    return sol
+
+
+def check_cycle_air(sol):
+    st, m, i = sol["states"], sol["metrics"], sol["inputs"]
+    for s in st.values():
+        assert math.isclose(s["P"] * s["v"], R_AIR * s["T"], rel_tol=1e-12)
+    assert math.isclose(sum(p["q"] for p in sol["processes"]), m["wnet"], rel_tol=1e-10)
+    assert abs(sum(p["du"] for p in sol["processes"])) < 1e-9
+    for p in sol["processes"]:
+        assert abs(p["q"] - p["w"] - p["du"]) < 1e-9
+    # both isentropes, and the entropy closes going 4 -> 1 at constant volume
+    assert abs(air_psi(st["2"]["T"]) - air_psi(st["1"]["T"]) - R_AIR * math.log(i["r"])) < 1e-11
+    assert abs(air_psi(st["4"]["T"]) - air_psi(st["3"]["T"]) + R_AIR * math.log(st["4"]["v"] / st["3"]["v"])) < 1e-11
+    s1 = st["4"]["s"] + air_sT(st["1"]["T"]) - air_sT(st["4"]["T"]) - R_AIR * math.log(st["1"]["T"] / st["4"]["T"])
+    assert abs(s1) < 1e-11
+
+
+def point_on_process_air(sol, pid, lam):
+    p = process_by_id(sol, pid)
+    A, B = sol["states"][p["from"]], sol["states"][p["to"]]
+    if p["kind"] == "constV":
+        T = A["T"] + lam * (B["T"] - A["T"])
+        s = A["s"] + air_sT(T) - air_sT(A["T"]) - R_AIR * math.log(T / A["T"])
+        return {"P": A["P"] * T / A["T"], "T": T, "v": A["v"], "s": s}
+    v = A["v"] + lam * (B["v"] - A["v"])
+    if p["kind"] == "constP":
+        T = A["T"] * v / A["v"]
+        return {"P": A["P"], "T": T, "v": v, "s": A["s"] + air_sT(T) - air_sT(A["T"])}
+    T = air_T_isentropic(A["T"], v / A["v"])
+    return {"P": A["P"] * (A["v"] / v) * (T / A["T"]), "T": T, "v": v, "s": A["s"]}
+
+
+def energy_along_air(sol, pid, state):
+    p = process_by_id(sol, pid)
+    A = sol["states"][p["from"]]
+    du = air_u(state["T"]) - air_u(A["T"])
+    if p["kind"] == "isentropic":
+        return {"q": 0.0, "w": -du, "du": du}
+    if p["kind"] == "constV":
+        return {"q": du, "w": 0.0, "du": du}
+    return {"q": air_h(state["T"]) - air_h(A["T"]), "w": A["P"] * (state["v"] - A["v"]), "du": du}
+
+
 # ---------------------------------------------------------------------- paths
 
 def process_by_id(sol, pid):
@@ -172,6 +428,8 @@ def process_by_id(sol, pid):
 def point_on_process(sol, pid, lam):
     """lam in [0,1]: linear in v for volume-changing processes, linear in T for constV."""
     g = sol["gas"]
+    if g.get("kind") == "variable":
+        return point_on_process_air(sol, pid, lam)
     p = process_by_id(sol, pid)
     A, B = sol["states"][p["from"]], sol["states"][p["to"]]
     if p["kind"] == "constV":
@@ -189,6 +447,8 @@ def point_on_process(sol, pid, lam):
 def energy_along(sol, pid, state):
     """Running signed q, w, du from the start of process pid to `state`."""
     g = sol["gas"]
+    if g.get("kind") == "variable":
+        return energy_along_air(sol, pid, state)
     p = process_by_id(sol, pid)
     A = sol["states"][p["from"]]
     du = g["cv"] * (state["T"] - A["T"])
@@ -388,6 +648,155 @@ def timeline_block(name, sol, strokes=False, force=()):
             "timeline": tl, "statePhases": state_phases(tl), "frames": frames}
 
 
+# ------------------------------------------------- fixture: variable specific heats
+
+AIR_CASES = [
+    ("otto-default", "otto", {"r": 8, "qin": 800}, 100, 300),
+    ("diesel-default", "diesel", {"r": 18, "rc": 2}, 100, 300),
+    ("dual-default", "dual", {"r": 16, "rp": 1.5, "rc": 1.5}, 100, 300),
+    ("otto-290K", "otto", {"r": 8, "qin": 800}, 100, 290),
+    ("otto-hot", "otto", {"r": 12, "qin": 1800}, 100, 300),
+    ("diesel-offdesign", "diesel", {"r": 20, "rc": 3}, 95, 320),
+    ("diesel-extrapolated", "diesel", {"r": 26, "rc": 4}, 100, 400),
+    ("dual-as-otto", "dual", {"r": 9, "rp": 2.5, "rc": 1.0}, 100, 300),
+    ("dual-as-diesel", "dual", {"r": 18, "rp": 1.0, "rc": 2.0}, 100, 300),
+    ("dual-high", "dual", {"r": 22, "rp": 1.2, "rc": 2.4}, 110, 310),
+]
+
+
+def _props(T):
+    cp, cv = air_cp(T), air_cv(T)
+    return {"cp": cp, "cv": cv, "k": cp / cv, "u": air_u(T), "h": air_h(T),
+            "sT": air_sT(T), "psi": air_psi(T)}
+
+
+def build_air_case(name, cycle_type, params, P1, T1):
+    rat = ratios_for_air(cycle_type, params, T1)
+    sol = solve_cycle_air(cycle_type, P1, T1, rat["r"], rat["rp"], rat["rc"])
+    mids = []
+    for p in sol["processes"]:
+        for lam in (0.25, 0.5, 0.75):
+            pt = point_on_process(sol, p["id"], lam)
+            mids.append({"process": p["id"], "lambda": lam, **pt,
+                         "energy": energy_along(sol, p["id"], pt)})
+    # the same engine with constant specific heats, k = 1.4 (the faint reference cycle)
+    cold_gas = make_gas(1.4)
+    cr = ratios_for(cycle_type, params, T1, cold_gas)
+    cold = solve_cycle(cycle_type, P1, T1, cr["r"], cr["rp"], cr["rc"], cold_gas)
+    return sol, {
+        "name": name,
+        "spec": {"type": cycle_type, "P1": P1, "T1": T1, "params": params},
+        "gas": sol["gas"], "ratios": rat, "states": sol["states"],
+        "stateProps": {sid: _props(s["T"]) for sid, s in sol["states"].items()},
+        "processes": sol["processes"], "metrics": sol["metrics"], "midpoints": mids,
+        "cold": {"ratios": cr, "eta": cold["metrics"]["eta"], "Tmax": cold["metrics"]["Tmax"],
+                 "Pmax": cold["metrics"]["Pmax"]},
+    }
+
+
+def build_air_fixture():
+    sols, cycles = {}, []
+    for case in AIR_CASES:
+        sol, block = build_air_case(*case)
+        sols[case[0]] = sol
+        cycles.append(block)
+
+    P1, T1 = 100.0, 300.0
+    compare = []
+    for xv_a, type_a, xv_b, type_b in ((1.0, "otto", 0.0, "diesel"), (1.0, "otto", 0.5, "dual")):
+        r, qin = 12.0, 1000.0
+        sides = []
+        for xv, t in ((xv_a, type_a), (xv_b, type_b)):
+            rat = ratios_from_heat_air(r, qin, xv, T1)
+            s = solve_cycle_air(t, P1, T1, rat["r"], rat["rp"], rat["rc"])
+            assert math.isclose(s["metrics"]["qin"], qin, rel_tol=1e-9)
+            sides.append({"type": t, "xv": xv, "ratios": rat, "metrics": s["metrics"]})
+        compare.append({"constraint": "same-r-qin", "P1": P1, "T1": T1, "r": r, "qin": qin, "sides": sides})
+    for xv_a, type_a, xv_b, type_b in ((1.0, "otto", 0.0, "diesel"), (0.5, "dual", 0.0, "diesel")):
+        Pmax, qin = 7000.0, 1000.0
+        sides = []
+        for xv, t in ((xv_a, type_a), (xv_b, type_b)):
+            r = solve_r_for_pmax_air(Pmax, qin, xv, P1, T1)
+            rat = ratios_from_heat_air(r, qin, xv, T1)
+            s = solve_cycle_air(t, P1, T1, rat["r"], rat["rp"], rat["rc"])
+            assert math.isclose(s["metrics"]["Pmax"], Pmax, rel_tol=1e-9)
+            assert math.isclose(s["metrics"]["qin"], qin, rel_tol=1e-9)
+            sides.append({"type": t, "xv": xv, "ratios": rat, "metrics": s["metrics"]})
+        compare.append({"constraint": "same-pmax-qin", "P1": P1, "T1": T1, "Pmax": Pmax, "qin": qin, "sides": sides})
+
+    efficiency = []
+    for r in (4, 8, 12, 18, 24):
+        for qin in (400, 800, 1600):
+            rat = ratios_for_air("otto", {"r": r, "qin": qin}, T1)
+            efficiency.append({"type": "otto", "r": r, "qin": qin,
+                               "eta": solve_cycle_air("otto", P1, T1, **rat)["metrics"]["eta"]})
+    for r in (8, 12, 18, 24):
+        for rc in (1.5, 2, 3, 4):
+            efficiency.append({"type": "diesel", "r": r, "rc": rc,
+                               "eta": solve_cycle_air("diesel", P1, T1, r, 1.0, rc)["metrics"]["eta"]})
+        efficiency.append({"type": "dual", "r": r, "rp": 1.5, "rc": 1.5,
+                           "eta": solve_cycle_air("dual", P1, T1, r, 1.5, 1.5)["metrics"]["eta"]})
+
+    temps = [150, 200, 250, 298.15, 300, 400, 600, 800, 1000, 1000.5, 1200, 1500, 2000,
+             2500, 3000, 3500, 4000, 6000]
+    air = {
+        "R": R_AIR, "Tmid": T_MID, "Tlow": T_LO, "Thigh": T_HI, "low": AIR_LOW, "high": AIR_HIGH,
+        "samples": [{"T": T, **_props(T)} for T in temps],
+        "fromU": [{"u": u, "T": air_T_from_u(u)} for u in (100, 214.3, 500, 759.3, 1000, 1500, 2500, 3500, 5000)],
+        "fromH": [{"h": h, "T": air_T_from_h(h)} for h in (100, 300.4, 700, 1046.3, 1500, 2500, 3500, 5000, 7000)],
+        "isentropes": [{"Ta": Ta, "vRatio": vr, "Tb": air_T_isentropic(Ta, vr)}
+                       for Ta, vr in ((300, 1 / 8), (290, 1 / 8), (300, 1 / 18), (250, 1 / 26),
+                                      (1800, 8), (2000, 3), (5000, 2), (1200, 0.5))],
+    }
+
+    timelines = [
+        timeline_block("otto-default", sols["otto-default"]),
+        timeline_block("diesel-default", sols["diesel-default"]),
+        timeline_block("dual-default", sols["dual-default"]),
+        timeline_block("otto-default", sols["otto-default"], strokes=True),
+        timeline_block("otto-default", sols["otto-default"], force=("HP",)),
+        timeline_block("diesel-default", sols["diesel-default"], force=("HV",)),
+        timeline_block("dual-as-otto", sols["dual-as-otto"]),
+    ]
+
+    fixture = {
+        "meta": {
+            "generator": "tools/reference_cycles.py",
+            "model": "air with temperature-dependent specific heats (PHYSICS.md section 12)",
+            "units": "kPa, K, m^3/kg, kJ/kg, kJ/(kg.K), rad; u and h are zero at 0 K",
+            "signs": "q > 0 heat to gas; w > 0 work by gas; q - w = du",
+            "tolerance": "compare with relative tolerance 1e-9 (absolute 1e-9 near zero)",
+        },
+        "air": air, "cycles": cycles, "compare": compare, "efficiency": efficiency,
+        "timelines": timelines,
+    }
+    out = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "reference-variable.json"
+    out.write_text(json.dumps(fixture, indent=1) + "\n")
+    print(f"\nwrote {out.relative_to(out.parent.parent.parent)}  ({out.stat().st_size / 1024:.0f} kB)\n")
+
+    print(f"{'variable cp':20}{'r':>5}{'rp':>8}{'rc':>7}{'T2':>8}{'T3':>8}{'T4':>8}{'P3':>8}{'qin':>8}{'qout':>8}{'wnet':>8}{'eta%':>7}{'MEP':>7}{'cold%':>7}")
+    for c in cycles:
+        s, m, rt = c["states"], c["metrics"], c["ratios"]
+        print(f"{c['name']:20}{rt['r']:5.1f}{rt['rp']:8.4f}{rt['rc']:7.3f}{s['2']['T']:8.1f}{s['3']['T']:8.1f}"
+              f"{s['4']['T']:8.1f}{s['3']['P']:8.0f}{m['qin']:8.1f}{m['qout']:8.1f}{m['wnet']:8.1f}"
+              f"{100 * m['eta']:7.2f}{m['mep']:7.1f}{100 * c['cold']['eta']:7.2f}")
+    print()
+    for c in compare:
+        key = "r" if c["constraint"] == "same-r-qin" else "Pmax"
+        for sd in c["sides"]:
+            rt, m = sd["ratios"], sd["metrics"]
+            print(f"{c['constraint']:14} {key}={c[key]:<7g} {sd['type']:7} xv={sd['xv']:<4g} r={rt['r']:7.3f}"
+                  f" rp={rt['rp']:6.3f} rc={rt['rc']:6.3f} Tmax={m['Tmax']:7.1f} Pmax={m['Pmax']:8.1f} eta={100 * m['eta']:6.2f}%")
+    print()
+    for e in efficiency:
+        if e["type"] == "otto" and e["r"] == 8:
+            print(f"otto r=8 qin={e['qin']:<5} eta={100 * e['eta']:.2f}%")
+    for T in (300, 1000, 1500, 2000, 3000):
+        p = _props(T)
+        print(f"T={T:5}  cp={p['cp']:.4f}  cv={p['cv']:.4f}  k={p['k']:.4f}  u={p['u']:8.2f}  h={p['h']:8.2f}")
+    print("\nAIR_LOW  =", AIR_LOW, "\nAIR_HIGH =", AIR_HIGH)
+
+
 def main():
     sols, cycles = {}, []
     for case in CASES:
@@ -489,6 +898,8 @@ def main():
         sp = ", ".join(f"{k}:{v:.4f}" for k, v in t["statePhases"].items())
         print(f"{t['case']:15} strokes={t['strokes']!s:5} force={','.join(t['force']) or '-':3} total={t['timeline']['totalSeconds']:5.1f}s  {sp}")
     print(f"\nxhat(90 deg) = {xhat(math.pi / 2):.6f}   rho = {RHO}")
+
+    build_air_fixture()
 
 
 if __name__ == "__main__":

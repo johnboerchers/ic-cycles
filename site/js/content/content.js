@@ -314,3 +314,163 @@ export const CONTENT = {
     },
   },
 };
+
+// ------------------------------------------------ variable specific heats (air standard)
+//
+// Used when the page is set to variable specific heats (SPEC section 19). Same conventions as
+// CONTENT above. How it combines with CONTENT:
+//   model                    replaces CONTENT.model.
+//   symbols                  is appended to CONTENT.symbols.
+//   cycles.<type>.intro, .summary and .processes[id]: each field given here replaces the field
+//                            of the same name in that CONTENT card; fields not given keep the
+//                            CONTENT text. (CONTENT.strokes, roles and compare are unchanged.)
+// Extra \val names, available in this mode only:
+//   u1 u2 ux u3 u4   internal energy at each state, h2 hx h3   enthalpy (kJ/kg, zero at 0 K,
+//   as in the air table), etaCold   efficiency of the same cycle with constant specific heats
+//   and k = 1.4, already a percentage like eta.
+
+const v1v2 = [
+  { tex: t`v_1 = \frac{R\,T_1}{P_1}`, num: t`v_1 = \frac{(\val{R})(\val{T1})}{\val{P1}} = \val{v1}\ \text{m}^3\!/\text{kg}` },
+  { tex: t`v_2 = \frac{v_1}{r}`, num: t`v_2 = \frac{\val{v1}}{\val{r}} = \val{v2}\ \text{m}^3\!/\text{kg}` },
+  { tex: t`u_1 = u(T_1)`, num: t`u_1 = u(\val{T1}\ \text{K}) = \val{u1}\ \text{kJ/kg}` },
+];
+
+const vCompression = {
+  equations: [
+    { tex: t`\frac{v_{r2}}{v_{r1}} = \frac{v_2}{v_1} = \frac{1}{r}`, num: t`\frac{v_{r2}}{v_{r1}} = \frac{1}{\val{r}}\ \Rightarrow\ T_2 = \val{T2}\ \text{K}` },
+    { tex: t`P_2 = P_1\,\frac{v_1}{v_2}\,\frac{T_2}{T_1} = P_1\,r\,\frac{T_2}{T_1}`, num: t`P_2 = (\val{P1})(\val{r})\,\frac{\val{T2}}{\val{T1}} = \val{P2}\ \text{kPa}` },
+    { tex: t`w_{\text{in},1\text{-}2} = u_2 - u_1`, num: t`w_{\text{in},1\text{-}2} = \val{u2} - \val{u1} = \val{w12}\ \text{kJ/kg}` },
+  ],
+  notice: t`$k$ falls as the air heats up, so the air ends the stroke a little cooler than $T_1 r^{k-1}$ with $k = 1.4$ predicts. On the T–s diagram the point still climbs straight up: the process is still isentropic.`,
+};
+
+const vExpansion = (ratioTex, ratioNum) => ({
+  equations: [
+    { tex: t`\frac{v_{r4}}{v_{r3}} = \frac{v_4}{v_3} = ` + ratioTex, num: t`\frac{v_{r4}}{v_{r3}} = ` + ratioNum + t`\ \Rightarrow\ T_4 = \val{T4}\ \text{K}` },
+    { tex: t`w_{\text{out},3\text{-}4} = u_3 - u_4`, num: t`w_{\text{out},3\text{-}4} = \val{u3} - \val{u4} = \val{w34}\ \text{kJ/kg}` },
+  ],
+});
+
+const vRejection = {
+  equations: [
+    { tex: t`q_\text{out} = u_4 - u_1`, num: t`q_\text{out} = \val{u4} - \val{u1} = \val{qout}\ \text{kJ/kg}` },
+    { tex: t`P_1 = P_4\,\frac{T_1}{T_4}`, num: t`P_1 = \val{P4}\,\frac{\val{T1}}{\val{T4}} = \val{P1}\ \text{kPa}` },
+  ],
+};
+
+const vEta = { tex: t`\eta_\text{th} = \frac{w_\text{net}}{q_\text{in}} = 1 - \frac{q_\text{out}}{q_\text{in}}`, num: t`\eta_\text{th} = 1 - \frac{\val{qout}}{\val{qin}} = \val{eta}` };
+
+export const VARIABLE = {
+  model: {
+    title: "About this model",
+    points: [
+      t`The working fluid is a fixed mass of air that behaves as an ideal gas. It is never replaced, so the cycle is a closed system.`,
+      t`Every process is internally reversible: no friction and no pressure losses.`,
+      t`Combustion is replaced by heat addition from an outside source, and the exhaust is replaced by heat rejection that returns the air to its starting state.`,
+      t`The specific heats change with temperature (the air-standard assumptions; the cold-air standard holds them constant). $c_p$ rises from 1.00 kJ/kg·K at 300 K to 1.14 at 1000 K and 1.25 at 2000 K, so $k = c_p/c_v$ falls from 1.40 to 1.34 and 1.30.`,
+      t`So instead of formulas with a constant $k$, each step uses properties of air at the temperature it is at: $u$ and $h$ for the energy, and the relative specific volume $v_r$ for the isentropes, as with the air table.`,
+    ],
+    caveats: [
+      t`The properties come from published data for nitrogen, oxygen and argon (NASA polynomials), not from the air table in the textbook. They agree with it to within a fraction of a percent, so hand calculations differ in the last digit.`,
+      t`Above 3500 K the data are extended with a constant $c_p$. Real air at those temperatures partly dissociates, which this model ignores.`,
+      t`Real engines are considerably less efficient than these ideal cycles because of friction, heat loss, and combustion that is neither instantaneous nor complete.`,
+    ],
+  },
+
+  symbols: [
+    { tex: t`u,\ h`, name: "specific internal energy and enthalpy, measured from 0 K as in the air table", unit: "kJ/kg" },
+    { tex: t`v_r`, name: t`relative specific volume, a function of temperature only. Along an isentrope $v_{r2}/v_{r1} = v_2/v_1$`, unit: "" },
+    { tex: t`c_p(T),\ c_v(T)`, name: "specific heats, which now depend on temperature", unit: "kJ/kg·K" },
+  ],
+
+  cycles: {
+    otto: {
+      intro: { equations: v1v2 },
+      processes: {
+        "1-2": vCompression,
+        "2-3": {
+          equations: [
+            { tex: t`u_3 = u_2 + q_\text{in}`, num: t`u_3 = \val{u2} + \val{qin} = \val{u3}\ \text{kJ/kg}\ \Rightarrow\ T_3 = \val{T3}\ \text{K}` },
+            { tex: t`P_3 = P_2\,\frac{T_3}{T_2}`, num: t`P_3 = \val{P2}\,\frac{\val{T3}}{\val{T2}} = \val{P3}\ \text{kPa}` },
+          ],
+          notice: t`$c_v$ grows with temperature, so each kelvin takes more energy than it does near room temperature. The same heat input therefore raises the temperature less than with constant specific heats.`,
+        },
+        "3-4": {
+          ...vExpansion(t`r`, t`\val{r}`),
+          notice: t`At these temperatures $k$ is lower than during compression, so the same volume ratio lowers the temperature by a smaller factor: $T_3/T_4$ is less than $T_2/T_1$. The gas ends the stroke hotter, and more heat is left to reject.`,
+        },
+        "4-1": vRejection,
+      },
+      summary: {
+        text: t`The net work is still the area enclosed by the cycle. But the efficiency is no longer $1 - 1/r^{k-1}$: it also depends on how much heat is added, because the hotter the gas gets, the lower its $k$.`,
+        equations: [
+          netWork,
+          vEta,
+          { tex: t`\eta_\text{th,cold} = 1 - \frac{1}{r^{\,k-1}}\quad (k = 1.4)`, num: t`\eta_\text{th,cold} = 1 - \frac{1}{(\val{r})^{0.4}} = \val{etaCold}` },
+          mep,
+        ],
+        notice: t`Raise $q_\text{in}$ and watch the efficiency fall slowly. With constant specific heats it did not move.`,
+      },
+    },
+
+    diesel: {
+      intro: { equations: v1v2 },
+      processes: {
+        "1-2": vCompression,
+        "2-3": {
+          energy: t`The heat does two things at once: it raises the internal energy of the gas and it does work on the piston. That is why the enthalpy $h$ appears here instead of $u$.`,
+          equations: [
+            { tex: t`T_3 = T_2\,\frac{v_3}{v_2} = T_2\,r_c`, num: t`T_3 = (\val{T2})(\val{rc}) = \val{T3}\ \text{K}` },
+            { tex: t`q_\text{in} = h_3 - h_2`, num: t`q_\text{in} = \val{h3} - \val{h2} = \val{qin}\ \text{kJ/kg}` },
+            { tex: t`w_{\text{out},2\text{-}3} = P_2\,(v_3 - v_2)`, num: t`w_{\text{out},2\text{-}3} = \val{P2}\,(\val{v3} - \val{v2}) = \val{wP}\ \text{kJ/kg}` },
+          ],
+        },
+        "3-4": vExpansion(t`\frac{r}{r_c}`, t`\frac{\val{r}}{\val{rc}} = \val{rexp}`),
+        "4-1": vRejection,
+      },
+      summary: {
+        text: t`For the same compression ratio and heat input, a Diesel cycle is still less efficient than an Otto cycle, and both fall below their cold-air values. Diesel engines win in practice because they run at much higher compression ratios.`,
+        equations: [
+          netWork,
+          vEta,
+          { tex: t`\eta_\text{th,cold} = 1 - \frac{1}{r^{\,k-1}} \left[ \frac{r_c^{\,k} - 1}{k\,(r_c - 1)} \right]\quad (k = 1.4)`, num: t`\eta_\text{th,cold} = 1 - \frac{1}{(\val{r})^{0.4}} \left[ \frac{(\val{rc})^{1.4} - 1}{1.4\,(\val{rc} - 1)} \right] = \val{etaCold}` },
+          mep,
+        ],
+        notice: t`Raise $r_c$ and the efficiency falls, as with constant specific heats, but faster: more of the heat is added at high temperature, where $k$ is low.`,
+      },
+    },
+
+    dual: {
+      intro: { equations: v1v2 },
+      processes: {
+        "1-2": vCompression,
+        "2-x": {
+          equations: [
+            { tex: t`P_x = r_p\,P_2 \qquad T_x = r_p\,T_2`, num: t`T_x = (\val{rp})(\val{T2}) = \val{Tx}\ \text{K}` },
+            { tex: t`q_{\text{in},v} = u_x - u_2`, num: t`q_{\text{in},v} = \val{ux} - \val{u2} = \val{qV}\ \text{kJ/kg}` },
+          ],
+        },
+        "x-3": {
+          energy: t`This part of the heat raises the internal energy and does work on the piston at the same time, so it is measured by the enthalpy.`,
+          equations: [
+            { tex: t`T_3 = T_x\,\frac{v_3}{v_x} = T_x\,r_c`, num: t`T_3 = (\val{Tx})(\val{rc}) = \val{T3}\ \text{K}` },
+            { tex: t`q_{\text{in},p} = h_3 - h_x`, num: t`q_{\text{in},p} = \val{h3} - \val{hx} = \val{qP}\ \text{kJ/kg}` },
+            { tex: t`w_{\text{out},x\text{-}3} = P_x\,(v_3 - v_x)`, num: t`w_{\text{out},x\text{-}3} = \val{Px}\,(\val{v3} - \val{vx}) = \val{wP}\ \text{kJ/kg}` },
+          ],
+        },
+        "3-4": vExpansion(t`\frac{r}{r_c}`, t`\frac{\val{r}}{\val{rc}} = \val{rexp}`),
+        "4-1": vRejection,
+      },
+      summary: {
+        equations: [
+          { tex: t`q_\text{in} = (u_x - u_2) + (h_3 - h_x)`, num: t`q_\text{in} = \val{qV} + \val{qP} = \val{qin}\ \text{kJ/kg}` },
+          netWork,
+          vEta,
+          { tex: t`\eta_\text{th,cold} = 1 - \frac{1}{r^{\,k-1}} \left[ \frac{r_p\,r_c^{\,k} - 1}{(r_p - 1) + k\,r_p\,(r_c - 1)} \right]\quad (k = 1.4)`, num: t`\eta_\text{th,cold} = \val{etaCold}` },
+          mep,
+        ],
+        notice: t`Set $r_c = 1$ and the dual cycle becomes an Otto cycle; set $r_p = 1$ instead and it becomes a Diesel cycle. What no longer exists is a single formula for the efficiency: it comes from the heat terms.`,
+      },
+    },
+  },
+};
