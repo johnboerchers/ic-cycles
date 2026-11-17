@@ -2272,8 +2272,8 @@ body.focus .segmented.small button {
   }
 
   /* Compare mode: no key on P–v, which sits beside the engines and their own A and B
-     labels. */
-  #pv-panel .compare-key {
+     labels. (The cold-air key of explore mode stays.) */
+  body[data-mode="compare"] #pv-panel .compare-key {
     display: none;
   }
 
@@ -2304,4 +2304,72 @@ body.focus .segmented.small button {
 
 .panel-head .switch {
   margin-left: auto;
+}
+
+/* ------------------------------------------------------------ variable specific heats (SPEC 19) */
+
+/* The "Specific heats" control at the top of the Parameters and Compare panels. */
+.heats-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.compare-controls .heats-control {
+  margin-top: 0;
+}
+
+.param[hidden],
+.k-line[hidden],
+.cold-switch[hidden],
+.params-foot [hidden] {
+  display: none;
+}
+
+/* The read-only k line that replaces the k slider, and the cold-air switch under it. */
+.k-line {
+  padding: 7px 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.k-line .k-value {
+  margin-left: 0.3em;
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cold-switch {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+/* The cold-air reference cycle: thin, dashed, muted ink, under the real cycle. */
+.diagram .cold-curve {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+}
+
+/* Where the dashed cold-air line passes behind a state label (3 and x sit right next to it),
+   the label gets a halo of the panel color so it stays legible. */
+.diagram.with-cold .state-label {
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.side-swatch.cold {
+  border-top: 1.5px dashed var(--muted);
+}
+
+.results-note {
+  margin: 0;
 }

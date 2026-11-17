@@ -18,7 +18,7 @@ Stage 1, variable specific heats (the setup is done: PHYSICS.md section 12, SPEC
 the second fixture and the teaching text):
 
 - [x] M8 Variable specific heats: core model
-- [ ] M9 Variable specific heats: page
+- [x] M9 Variable specific heats: page
 
 ## For the instructor: how to run this
 
@@ -514,6 +514,21 @@ whether to push: a push publishes to students.
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M9 (variable specific heats, page).** `npm test`: 163 (the KaTeX test now also typesets
+  `contentFor("variable")` with air values). Every item of the list checked at 1366 × 768 with exact numbers;
+  light, dark and 390 × 844 screenshotted in headless Chrome (the pane was hidden). Constant mode compared
+  pixel by pixel with the M8 commit: identical except the new control in the Parameters and Compare panels.
+- No core change. `main.js` rebuilds the model on `specificHeats` and `options.coldCycle` (the bounds follow it).
+  The cold-air key reuses `.compare-key` in the title row; on a phone it stays on P–v (the compare-mode
+  rule that hides that key now applies in compare mode only).
+- Readings chosen: the k line always shows three decimals (1.400, not 1.4); the cold-air line in the results is
+  hidden when no heat is added; while the cold cycle is shown, state labels get a halo of the panel color,
+  because the dashed line passes right behind labels 3 and x.
+- Fix beyond the spec: efficiency marker values now avoid the right-end curve labels. At r = 26 the value sat
+  on a label in both modes (constant Diesel rc = 4: "61.4 %" over "rc = 2"); default views are unchanged.
+- Open question for the instructor: the page footer still says "cold-air-standard cycles … constant specific
+  heats" in variable mode. SPEC 19 says nothing about it, so it was left as is.
 
 - **M8 (variable specific heats, core).** `npm test`: 160 tests, constant fixture and every earlier
   expectation untouched; the variable fixture reproduced at 1e-9 (`tests/variable.test.js`). The page

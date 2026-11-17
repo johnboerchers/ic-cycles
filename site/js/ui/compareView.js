@@ -14,7 +14,7 @@ import { resultValues } from "../core/tables.js";
 import { SIDES } from "../core/model.js";
 import { CONTENT } from "../content/content.js";
 import { htmlEl, symbolHtml } from "./dom.js";
-import { sliderRow, LABELS } from "./paramsPanel.js";
+import { sliderRow, LABELS, specificHeatsControl } from "./paramsPanel.js";
 import { renderProse } from "./math.js";
 
 const CONSTRAINTS = ["same-r-qin", "same-pmax-qin", "independent"];
@@ -45,6 +45,7 @@ const cycleName = (type) => CONTENT.cycles[type].name.replace(" cycle", "");
 export function createCompareView(container, { actions, results }) {
   // ---------------------------------------------------------------- controls
   const body = htmlEl("div", { class: "compare-controls" }, container);
+  const showHeats = specificHeatsControl(body, actions);
 
   const types = htmlEl("div", { class: "compare-types" }, body);
   const selects = {};
@@ -181,6 +182,7 @@ export function createCompareView(container, { actions, results }) {
   function render(model, state) {
     lastState = state;
     if (model.mode !== "compare") return;
+    showHeats(state.specificHeats);
     for (const key of SIDES) selects[key].value = state.compare[key].type;
     for (const c of CONSTRAINTS) radios[c].checked = state.compare.constraint === c;
     const list = freeSliders(state);

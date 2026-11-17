@@ -1,13 +1,18 @@
 // Parameters panel (SPEC section 8): one slider and one number box per parameter, the k chips
 // and Reset. Changing a value updates everything at once; the playhead keeps its slot and tau.
 //
+// Variable specific heats (SPEC section 19): the "Specific heats" control sits at the top. With
+// variable specific heats the k slider, its box and the chips are hidden (k keeps its value for
+// the way back); in their place a read-only line gives k = cp/cv at the state point's
+// temperature, written in tick(), and under it the "Show the cold-air cycle" switch.
+//
 // render() rebuilds the rows only when the cycle changes. Otherwise it only writes values, so a
 // slider being dragged or a box being typed in keeps its focus.
 
 import { PARAMS, SHARED, K_CHIPS } from "../state/defaults.js";
 import { parseNumber, inRange, clampTo } from "../core/params.js";
 import { formatValue } from "../core/format.js";
-import { htmlEl, symbolHtml, noMouseFocus } from "./dom.js";
+import { htmlEl, symbolHtml, noMouseFocus, makeSwitch } from "./dom.js";
 
 // Label of each parameter: words, symbol, subscript, unit.
 export const LABELS = {
@@ -23,11 +28,36 @@ export const LABELS = {
 // Values in the boxes read as typed: "8", "1.667", "800".
 const show = (x) => formatValue("ratio", x);
 
+// The "Specific heats" control (SPEC section 19), used here and in the compare panel: a label
+// and two buttons. Returns show(value), which marks the current choice.
+export function specificHeatsControl(parent, actions) {
+  const wrap = htmlEl("div", { class: "heats-control" }, parent);
+  htmlEl("span", { class: "control-label", "aria-hidden": "true", text: "Specific heats" }, wrap);
+  const group = htmlEl("div", { class: "segmented small", role: "group", "aria-label": "Specific heats" }, wrap);
+  const buttons = [
+    ["constant", "Constant (cold air)"],
+    ["variable", "Variable (air)"],
+  ].map(([value, text]) => {
+    const b = noMouseFocus(htmlEl("button", { type: "button", "aria-pressed": "false", text }, group));
+    b.addEventListener("click", () => actions.setSpecificHeats(value));
+    return { b, value };
+  });
+  return (value) => {
+    for (const { b, value: v } of buttons) b.setAttribute("aria-pressed", String(v === value));
+  };
+}
+
 export function createParamsPanel(container, actions) {
+  const showHeats = specificHeatsControl(container, actions);
   const body = htmlEl("div", { class: "params" }, container);
   let cycle = null;
   let rows = [];
   let chips = [];
+  let chipLabel = null;
+  let kLine = null; // { el, value, shown }
+  let coldBox = null;
+  let gas = null; // the gas of the cycle on screen, for the k line
+  let variable = false;
 
   function build(state) {
     body.replaceChildren();
@@ -40,9 +70,22 @@ export function createParamsPanel(container, actions) {
       if (f.group === "shared" && fields[i - 1]?.group === "params") htmlEl("div", { class: "params-rule", "aria-hidden": "true" }, body);
       return row(f);
     });
+    // Variable specific heats: the k line and the cold-air switch, where the k row was.
+    const kEl = htmlEl("div", { class: "k-line", hidden: "" }, body);
+    symbolHtml(kEl, "k");
+    kEl.append(" = ");
+    symbolHtml(kEl, "c", "p");
+    kEl.append("/");
+    symbolHtml(kEl, "c", "v");
+    kEl.append(" at the current temperature: ");
+    kLine = { el: kEl, value: htmlEl("span", { class: "k-value" }, kEl), shown: null };
+    const coldWrap = htmlEl("div", { class: "cold-switch", hidden: "" }, body);
+    coldBox = makeSwitch(coldWrap, "Show the cold-air cycle", (on) => actions.setOption("coldCycle", on), "small");
+    kLine.cold = coldWrap;
     chips = [];
     const chipRow = htmlEl("div", { class: "params-foot" }, body);
-    symbolHtml(htmlEl("span", { class: "control-label" }, chipRow), "k").append(":");
+    chipLabel = symbolHtml(htmlEl("span", { class: "control-label" }, chipRow), "k");
+    chipLabel.append(":");
     for (const k of K_CHIPS) {
       const b = noMouseFocus(htmlEl("button", { type: "button", class: "chip-btn", "aria-pressed": "false", text: k === 1.4 ? "1.4 (air)" : k === 1.667 ? "1.667 (monatomic)" : String(k) }, chipRow));
       b.addEventListener("click", () => actions.setParam("shared", "k", k));
@@ -70,11 +113,34 @@ export function createParamsPanel(container, actions) {
   function render(model, state) {
     lastState = state;
     if (state.cycle !== cycle) build(state);
-    for (const r of rows) r.show(current(r.group, r.key));
-    for (const c of chips) c.b.setAttribute("aria-pressed", String(Math.abs(state.shared.k - c.k) < 1e-9));
+    showHeats(state.specificHeats);
+    variable = state.specificHeats === "variable";
+    gas = model.cycles[0].solution.gas;
+    for (const r of rows) {
+      r.show(current(r.group, r.key));
+      if (r.key === "k") r.el.hidden = variable;
+    }
+    for (const c of chips) {
+      c.b.setAttribute("aria-pressed", String(Math.abs(state.shared.k - c.k) < 1e-9));
+      c.b.hidden = variable;
+    }
+    chipLabel.hidden = variable;
+    kLine.el.hidden = !variable;
+    kLine.cold.hidden = !variable;
+    coldBox.checked = state.options.coldCycle;
   }
 
-  return { render, tick() {} };
+  // The k line follows the state point: k of air at the gas temperature now.
+  function tick(frames) {
+    if (!variable) return;
+    const text = gas.kAt(frames[0].state.T).toFixed(3); // always three decimals: 1.400, 1.368
+    if (text !== kLine.shown) {
+      kLine.value.textContent = text;
+      kLine.shown = text;
+    }
+  }
+
+  return { render, tick };
 }
 
 // One parameter row: label, slider and number box (SPEC section 8), used here and in the

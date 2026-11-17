@@ -111,12 +111,16 @@ export function createEfficiencyView(container, { actions }) {
     }
     // Right-end labels, spread apart so they never overlap, with a short leader when moved.
     const ys = spreadLabels(ends.map((e) => e.y), LABEL_GAP, plot.top, plot.bottom);
+    const endBoxes = [];
     ends.forEach((e, i) => {
       const x = plot.right + 6;
       if (Math.abs(ys[i] - e.y) > 2) {
         svgEl("path", { class: "eff-leader", d: `M${px(plot.right + 1)} ${px(e.y)}L${px(x - 1)} ${px(ys[i])}` }, layer.labels);
       }
-      labelParts(layer.labels, { class: e.cls, x: px(x + 2), y: px(ys[i]), "dominant-baseline": "central" }, e.c.label);
+      const text = labelParts(layer.labels, { class: e.cls, x: px(x + 2), y: px(ys[i]), "dominant-baseline": "central" }, e.c.label);
+      // Its box, so a marker value at the right edge (r = 26) is not put on top of it.
+      const len = text.textContent.replace(/\u200b/g, "").length;
+      endBoxes.push([x + 2, ys[i] - 7, x + 2 + CHAR_W * len, ys[i] + 7]);
     });
 
     // Markers with their values. Each value goes to the first spot around its marker that keeps
@@ -124,6 +128,7 @@ export function createEfficiencyView(container, { actions }) {
     // mode, then the other corners (core/efficiency.js, clearSpot).
     const ms = data.markers.filter((m) => m.r >= R_RANGE[0] && m.r <= R_RANGE[1]);
     const obstacles = [...data.main, ...data.refs].map((c) => screen(c.points));
+    for (const [l, t, r, b] of endBoxes) obstacles.push([[l, t], [r, t], [r, b], [l, b], [l, t]]);
     const placed = ms.map((m) => {
       const x = sx(m.r);
       const y = sy(m.eta);

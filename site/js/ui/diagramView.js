@@ -14,6 +14,11 @@
 // color, B dashed in the B color, each with its own dot and state labels, and a key in the
 // title row. No piston strip, no shading, and no drop-lines or axis values (two sets would
 // cover each other; the readouts under the engines give the numbers).
+//
+// Variable specific heats, explore mode (SPEC section 19): with "Show the cold-air cycle" on,
+// the same cycle with constant specific heats and k = 1.4 is drawn under the real one as a thin
+// dashed line in muted ink, with no markers, labels, arrows or dot, and a key in the title row.
+// Shading, the piston strip, dragging and hover ignore it.
 
 import { linear, logScale, ticks, logTicks } from "../core/scale.js";
 import { formatTicks, formatLogTicks, formatValue } from "../core/format.js";
@@ -89,7 +94,7 @@ export function createDiagramView(container, { kind, actions }) {
   const tip = htmlEl("div", { class: "tooltip", role: "tooltip", hidden: "" }, box);
   // Drawing order, bottom to top.
   const layer = {};
-  for (const name of ["grid", "shade", "axes", "strip", "drops", "curves", "trails", "arrows", "markers", "labels", "dots", "badges"]) {
+  for (const name of ["grid", "shade", "cold", "axes", "strip", "drops", "curves", "trails", "arrows", "markers", "labels", "dots", "badges"]) {
     layer[name] = svgEl("g", {}, svg);
   }
 
@@ -101,6 +106,7 @@ export function createDiagramView(container, { kind, actions }) {
   let shade = false; // area shading on (the switch, and linear axes)
   let compare = false; // two cycles, colored by cycle
   let strokes = false; // intake and exhaust strokes in the timeline
+  let cold = null; // the cold-air reference cycle while it is shown: { solution, samples }
   let shown = null; // axis bounds on screen now, [[x0, x1], [y0, y1]]
   let target = null; // axis bounds being moved to
   let tween = null;
@@ -131,6 +137,8 @@ export function createDiagramView(container, { kind, actions }) {
     if (logBox) logBox.checked = log;
     compare = model.mode === "compare";
     shade = state.options.shade && !log && !compare;
+    cold = !compare && state.options.coldCycle ? model.cycles[0].cold ?? null : null;
+    svg.classList.toggle("with-cold", Boolean(cold));
     renderKey();
     strokes = model.cycles[0].timeline.slots.some((sl) => sl.id === "X" && sl.u1 > sl.u0);
     if (note) note.hidden = !strokes;
@@ -211,6 +219,7 @@ export function createDiagramView(container, { kind, actions }) {
     sy = scale(by, [plot.bottom, plot.top]);
     drawAxes(bx, by, xt, yt, withStrip);
     items = [];
+    if (cold) drawCold(cold);
     model.cycles.forEach((c, i) => items.push(drawCycle(c, samples[i])));
     if (withStrip) strip = drawStrip(model.cycles[0]);
   }
@@ -251,16 +260,32 @@ export function createDiagramView(container, { kind, actions }) {
     }
   }
 
-  // The key in the title row in compare mode: a line sample and the cycle's name per cycle.
+  // The key in the title row: in compare mode a line sample and the cycle's name per cycle; with
+  // the cold-air cycle shown, its dashed sample and "cold air, k = 1.4".
   function renderKey() {
-    key.hidden = !compare;
+    key.hidden = !compare && !cold;
     key.replaceChildren();
+    if (cold) {
+      const item = htmlEl("span", { class: "compare-key-item" }, key);
+      htmlEl("span", { class: "side-swatch cold", "aria-hidden": "true" }, item);
+      item.append("cold air, ");
+      symbolHtml(item, "k");
+      item.append(" = 1.4");
+    }
     if (!compare) return;
     for (const c of model.cycles) {
       const item = htmlEl("span", { class: "compare-key-item" }, key);
       htmlEl("span", { class: `side-swatch ${c.id}`, "aria-hidden": "true" }, item);
       item.append(c.label);
     }
+  }
+
+  // The cold-air reference cycle: one dashed path through its processes, nothing else.
+  function drawCold({ solution, samples: pts }) {
+    const points = solution.processes
+      .filter((p) => !p.degenerate)
+      .flatMap((p) => pts[p.id].map((pt) => [sx(pt[cfg.x.key]), sy(pt[cfg.y.key])]));
+    if (points.length > 1) svgEl("path", { class: "cold-curve", d: `${polyline(points)}Z` }, layer.cold);
   }
 
   // Color of a process: its role in explore mode, its cycle in compare mode.

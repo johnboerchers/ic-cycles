@@ -2,6 +2,9 @@
 // q_in, q_out, MEP, T_max and P_max; the Carnot efficiency between T_max and T1 for reference;
 // for Otto the derived pressure ratio. A dual cycle with rp = rc = 1 adds no heat: every value
 // reads "—" and a hint says what to change.
+//
+// Variable specific heats (SPEC section 19): under the Carnot line, the efficiency of the same
+// cycle with the cold-air standard (k = 1.4); above 3500 K a note under the tiles.
 
 import { resultValues } from "../core/tables.js";
 import { formatValue } from "../core/format.js";
@@ -25,6 +28,7 @@ export function createResultsPanel(container) {
   symbolHtml(heroLabel, "η", "th");
   const eta = htmlEl("div", { class: "tile-value big" }, hero);
   const carnot = htmlEl("div", { class: "tile-note" }, hero);
+  const cold = htmlEl("div", { class: "tile-note" }, hero);
   const derived = htmlEl("div", { class: "tile-note" }, hero);
   const hint = htmlEl("div", { class: "tile-hint", hidden: "" }, hero);
   hint.append("Add heat: raise ");
@@ -44,6 +48,7 @@ export function createResultsPanel(container) {
     const unitEl = htmlEl("span", { class: "unit", text: ` ${t.unit}` }, value);
     return { ...t, num, unitEl };
   });
+  const hot = htmlEl("p", { class: "tile-note results-note", hidden: "", text: "Above 3500 K the air data are extended, and real air would dissociate." }, body);
 
   function render(model) {
     // Explore mode shows one cycle; compare mode has its own results table (M6).
@@ -61,6 +66,15 @@ export function createResultsPanel(container) {
     symbolHtml(carnot, "T", "1");
     carnot.append(`: ${formatValue("eta", r.etaCarnot)}`);
     carnot.hidden = !r.heatAdded;
+    const coldCycle = model.cycles[0].cold?.solution;
+    cold.replaceChildren();
+    if (coldCycle && r.heatAdded) {
+      cold.append("Cold-air standard (");
+      symbolHtml(cold, "k");
+      cold.append(` = 1.4): ${formatValue("eta", coldCycle.metrics.eta)}`);
+    }
+    // The air data end at 3500 K; above it they are extended with a constant cp (PHYSICS 12.1).
+    hot.hidden = !(solution.gas.kind === "variable" && r.Tmax > 3500);
     derived.replaceChildren();
     if (solution.type === "otto") {
       derived.append("Pressure ratio ");

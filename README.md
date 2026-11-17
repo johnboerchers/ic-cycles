@@ -38,19 +38,28 @@ play controls at the bottom while you scroll through the rest.
 
 ## The model
 
-Cold-air-standard analysis, as in the textbook chapters on gas power cycles:
+Ideal air-standard cycles, as in the textbook chapters on gas power cycles:
 
 - the working fluid is a fixed mass of air, treated as an ideal gas, that is never replaced;
 - every process is internally reversible;
 - combustion is replaced by heat added from outside, and the exhaust by heat rejected at
-  constant volume;
-- specific heats are constant (k = 1.4 by default, adjustable from 1.2 to 1.67).
+  constant volume.
+
+A "Specific heats" switch offers two models for the air:
+
+- **Constant (cold air)**, the default: the cold-air standard, with k = 1.4 by default,
+  adjustable from 1.2 to 1.67.
+- **Variable (air)**: specific heats that depend on temperature, as in the air-table
+  analysis. The same cycle with the cold-air standard is drawn faintly beside it, so the two
+  can be compared. The properties come from the NASA 7-coefficient polynomials for nitrogen,
+  oxygen and argon in the GRI-Mech 3.0 data, weighted by their mole fractions in air; they agree with the air table in
+  Çengel & Boles to within a fraction of a percent, so hand calculations differ in the last
+  digit. Above 3500 K the data are extended with a constant c_p, and dissociation is ignored.
 
 The optional intake and exhaust strokes are drawn for orientation only; their work cancels and
-they do not enter the cycle analysis. Because the specific heats are constant, the numbers
-differ from examples worked with the air tables (variable specific heats). The page's "Model"
-button lists all of this for students; the full model, including the animation timeline, is
-written out in [docs/PHYSICS.md](docs/PHYSICS.md).
+they do not enter the cycle analysis. The page's "Model" button lists all of this for
+students; the full model, including the property data and the animation timeline, is written
+out in [docs/PHYSICS.md](docs/PHYSICS.md).
 
 Notation follows Çengel & Boles, *Thermodynamics: An Engineering Approach*: states 1-2-3-4
 (1-2-x-3-4 for the dual cycle), heat and work as magnitudes with in/out subscripts, SI units.

@@ -87,6 +87,11 @@ const actions = {
   setMode(mode) {
     if (mode !== store.get().mode) store.set({ mode });
   },
+  // Constant or variable specific heats, for every cycle in both modes (SPEC section 19). The
+  // playhead keeps its slot and tau, like a parameter change.
+  setSpecificHeats(specificHeats) {
+    if (specificHeats !== store.get().specificHeats) store.set({ specificHeats });
+  },
   // ---- compare mode (SPEC section 15)
   setCompareConstraint(constraint) {
     const { compare } = store.get();
@@ -218,10 +223,12 @@ function modelInputsChanged(state, prev) {
   return (
     state.mode !== prev.mode ||
     state.cycle !== prev.cycle ||
+    state.specificHeats !== prev.specificHeats ||
     state.shared !== prev.shared ||
     state.params !== prev.params ||
     state.compare !== prev.compare ||
-    state.options.strokes !== prev.options.strokes
+    state.options.strokes !== prev.options.strokes ||
+    state.options.coldCycle !== prev.options.coldCycle // the axis bounds include the cold-air cycle
   );
 }
 

@@ -1,10 +1,11 @@
 // Process card (SPEC section 10): one step of the cycle at a time, with the wording and the
-// equations from content/content.js. Steps: intro (state 1), one per process, summary.
+// equations from content/content.js (with variable specific heats, the merged text of
+// core/content.js, contentFor). Steps: intro (state 1), one per process, summary.
 // The card shown is state.card; main.js keeps it in step with the playhead (core/steps.js).
 // render() rebuilds the card body (new card, new parameters, numbers on or off); tick() does
 // nothing, because the card only changes through the store.
 
-import { CONTENT } from "../content/content.js";
+import { contentFor } from "../core/content.js";
 import { timelineSegments, framesAt, phaseOf } from "../core/model.js";
 import { cardSteps, validCard } from "../core/steps.js";
 import { texValues, fillValues } from "../core/values.js";
@@ -17,8 +18,8 @@ const TREND_WORD = { up: "rises", down: "falls", const: "constant" };
 const arrowLabel = (id) => id.replace("-", "→");
 
 // Wording of a process card: the cycle's own, or a stroke card.
-function processContent(cycle, id) {
-  return CONTENT.cycles[cycle].processes[id] ?? CONTENT.strokes[id];
+function processContent(content, cycle, id) {
+  return content.cycles[cycle].processes[id] ?? content.strokes[id];
 }
 
 export function createProcessCard(container, actions) {
@@ -79,13 +80,15 @@ export function createProcessCard(container, actions) {
 
   function render(model, state) {
     const { cycle } = state;
-    const cycleText = CONTENT.cycles[cycle];
+    const content = contentFor(state.specificHeats);
+    const cycleText = content.cycles[cycle];
     const frame = framesAt(model, phaseOf(model, state.playback))[0];
     const card = validCard(model, state.card, frame);
     const steps = cardSteps(model);
     const index = steps.indexOf(card);
     const roles = Object.fromEntries(timelineSegments(model).map((s) => [s.processId, s.role]));
-    const values = texValues(model.cycles[0].solution);
+    // With variable specific heats, \val{etaCold} comes from the cold-air cycle.
+    const values = texValues(model.cycles[0].solution, model.cycles[0].cold?.solution);
 
     container.classList.toggle("hide-numbers", !state.options.showNumbers);
     numbers.checked = state.options.showNumbers;
@@ -95,7 +98,7 @@ export function createProcessCard(container, actions) {
     steps.forEach((id, i) => {
       const li = htmlEl("li", {}, dots);
       const name =
-        id === "intro" ? "State 1" : id === "summary" ? "Summary" : `${arrowLabel(id)} ${processContent(cycle, id).title}`;
+        id === "intro" ? "State 1" : id === "summary" ? "Summary" : `${arrowLabel(id)} ${processContent(content, cycle, id).title}`;
       const b = noMouseFocus(htmlEl("button", { type: "button", class: "dot", title: name, "aria-label": name }, li));
       if (roles[id]) b.style.setProperty("--dot", roleColor(roles[id]));
       if (i === index) b.setAttribute("aria-current", "step");
@@ -110,9 +113,9 @@ export function createProcessCard(container, actions) {
       equations(body, c.equations, values);
       if (c.notice) prose(body, "card-notice", c.notice, values, "Notice");
     } else {
-      const c = processContent(cycle, card);
+      const c = processContent(content, cycle, card);
       title(body, c.title, { role: roles[card], states: arrowLabel(card) });
-      if (CONTENT.strokes[card]) prose(body, "card-note", CONTENT.strokes.note, values);
+      if (content.strokes[card]) prose(body, "card-note", content.strokes.note, values);
       prose(body, "card-text", c.what, values);
       prose(body, "card-text", c.engine, values, "In the engine");
       trends(body, c.trends);
