@@ -16,8 +16,8 @@ with what to look at and try, not with how the code works.
 | `site/` | The website. Only this folder is published |
 | `site/js/core/` | Pure model code, no DOM. Tested under Node |
 | `site/js/content/content.js` | All teaching text and equations. Already written: wire it in, do not rewrite it |
-| `tests/` | `node:test` files. `tests/fixtures/` holds the oracles for the model: `reference-cycles.json` (constant specific heats) and `reference-variable.json` (variable specific heats) |
-| `tools/reference_cycles.py` | Independent Python reference that generates both fixtures |
+| `tests/` | `node:test` files. `tests/fixtures/` holds the oracles for the model: `reference-cycles.json` (constant specific heats), `reference-variable.json` (variable specific heats) and `reference-friction.json` (friction) |
+| `tools/reference_cycles.py` | Independent Python reference that generates all three fixtures |
 
 ## How to work here
 
@@ -54,7 +54,7 @@ with what to look at and try, not with how the code works.
 ```bash
 npm test          # all tests (Node's built-in runner, no install needed)
 npm run serve     # serve site/ at http://localhost:8000
-npm run fixture   # regenerate both fixtures from the Python reference (rarely needed)
+npm run fixture   # regenerate the fixtures from the Python reference (rarely needed)
 ```
 
 ## Verifying

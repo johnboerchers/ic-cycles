@@ -331,7 +331,8 @@ Compare mode: at r = 12 and qin = 1000, Otto 62.99 %, dual (xv = 0.5) 61.84 %, D
 At Pmax = 7000 kPa and qin = 1000, Diesel 65.29 % (r = 20.79), dual 63.69 % (r = 13.56), Otto
 59.88 % (r = 9.81).
 
-Section 12.7 describes the second fixture, for variable specific heats.
+Section 12.7 describes the second fixture, for variable specific heats, and section 13 the
+third, for friction.
 
 ## 11. Number formatting
 
@@ -506,3 +507,59 @@ solution gives 52.3 % and about 1575 K. Otto at r = 8 now depends on qin: 400 kJ
 dual (xv = 0.5) 56.86 %, Diesel 51.31 %. At Pmax = 7000 kPa: Diesel 61.30 % (r = 21.879), dual
 59.93 % (r = 14.862), Otto 56.82 % (r = 11.184). Both rankings, and so the compare takeaways in
 `content.js`, hold for either gas.
+
+## 13. Friction: indicated → brake
+
+Friction sits on top of the ideal cycle and changes nothing in sections 2–12: no state,
+process, path, frame or diagram. It turns the cycle's indicated quantities into brake
+quantities for an engine of a given size and speed. It is on when `state.options.friction` is
+true (default false), with its inputs in `state.engine`, and it works with either gas model.
+
+Inputs: `fmep` (friction mean effective pressure, kPa), `Vd` (total displacement, L) and `N`
+(engine speed, rev/min). A four-stroke engine: `n_R = 2` revolutions per cycle. From the solved
+cycle: `imep = metrics.mep` and `Δv = v1 − v2`. Since kPa·L = J, every work per cycle comes out
+in joules.
+
+| Quantity | Formula | Unit |
+|---|---|---|
+| bmep | imep − fmep | kPa |
+| η_m | bmep / imep | — |
+| η_b | η_th · η_m (equal to w_b / q_in) | — |
+| w_f, w_b | fmep · Δv, w_net − w_f | kJ/kg |
+| ṁ | (Vd / 1000) / Δv · N / (60 · n_R) | kg/s |
+| Q̇_in | ṁ · q_in | kW |
+| Ẇ_i, Ẇ_f, Ẇ_b | imep · Vd · N / 120 000, and the same with fmep and bmep | kW |
+| τ_i, τ_b | imep · Vd / (4π), bmep · Vd / (4π) | N·m |
+
+`canRun = bmep > 0`. When the engine cannot run, η_m and η_b are shown as "—" and the brake
+values as computed (zero or negative), with a note (SPEC section 20). When the cycle adds no
+heat (imep = 0), η_m does not exist either: "—".
+
+**Core API.** `core/friction.js` exports `frictionResults(solution, engine)`, returning an
+object with exactly the keys of the fixture's `results`: `imep, fmep, bmep, canRun, etam, etab,
+wf, wb, mdot, Qin, Wi, Wf, Wb, taui, taub`. It is pure and tested against
+`tests/fixtures/reference-friction.json` (eight cases, both gas models, one that cannot run),
+written by the same `npm run fixture`.
+
+**Equation values.** `texValues(solution, cold, engine)` adds `imep fmep bmep etam etab Vd N Wb
+taub`. When `engine` is not given, the engine defaults are used, so every name always exists.
+Formats: `imep`, `bmep` as `mep`; `fmep` as `mep`, trimmed (typed); `etam`, `etab` as `eta`;
+`Vd` as `ratio`, trimmed (typed); `N` as `rpm`; `Wb` as `power`; `taub` as `torque`.
+
+**Formats added to section 11.** `power`: 1 decimal, kW (`22.5`). `torque`: 1 decimal, N·m
+(`71.6`). `rpm`: a whole number with no separator (`3000`). Displacement uses `ratio` (`2`,
+`1.6`).
+
+Reference values (fmep = 150 kPa, Vd = 2.0 L, N = 3000 rev/min; constant specific heats with
+k = 1.4 unless noted):
+
+| Case | imep | bmep | η_th | η_m | η_b | Ẇ_i | Ẇ_b | τ_i | τ_b |
+|---|---|---|---|---|---|---|---|---|---|
+| Otto, r = 8, q_in = 800 | 599.7 | 449.7 | 56.5 % | 75.0 % | 42.3 % | 30.0 | 22.5 | 95.4 | 71.6 |
+| Otto, q_in = 300 | 224.9 | 74.9 | 56.5 % | 33.3 % | 18.8 % | 11.2 | 3.7 | 35.8 | 11.9 |
+| Otto, q_in = 200: cannot run | 149.9 | −0.1 | 56.5 % | — | — | 7.5 | −0.0 | 23.9 | −0.0 |
+| Diesel, r = 18, r_c = 2 | 743.8 | 593.8 | 63.2 % | 79.8 % | 50.4 % | 37.2 | 29.7 | 118.4 | 94.5 |
+| Otto, variable specific heats | 554.1 | 404.1 | 52.2 % | 72.9 % | 38.1 % | 27.7 | 20.2 | 88.2 | 64.3 |
+
+For the default Otto cycle also: w_f = 113.0 and w_b = 338.8 kJ/kg, friction power 7.5 kW,
+heat input 53.1 kW.

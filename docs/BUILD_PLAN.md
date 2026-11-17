@@ -20,6 +20,11 @@ the second fixture and the teaching text):
 - [x] M8 Variable specific heats: core model
 - [x] M9 Variable specific heats: page
 
+Friction (the setup is done: PHYSICS.md section 13, SPEC.md section 20, the third fixture and
+the teaching text):
+
+- [ ] M10 Friction: indicated and brake
+
 ## For the instructor: how to run this
 
 Start a new session for each milestone (a fresh session costs fewer tokens than a long one),
@@ -511,9 +516,85 @@ whether to push: a push publishes to students.
 
 ---
 
+## Friction: indicated and brake
+
+An optional layer on top of the ideal cycle: friction expressed as a friction mean effective
+pressure, and engine size and speed, give brake MEP, mechanical and brake efficiency, power and
+torque next to the indicated values. The diagrams do not change. What is already in place:
+
+- PHYSICS.md section 13: the formulas, the core API, formats and reference values.
+- SPEC.md section 20: controls, results table, energy bar, the extra process-card step.
+- `tests/fixtures/reference-friction.json`: the oracle, from `tools/reference_cycles.py`. The
+  other two fixtures are unchanged.
+- `FRICTION` in `site/js/content/content.js`: the card, a Model point and symbols, typeset-checked
+  and guarded by `tests/content.test.js`. Wire it in; do not rewrite it.
+
+## M10 Friction: indicated and brake
+
+**Goal:** a student can switch on friction, set the friction MEP, engine size and speed, and
+see brake MEP, mechanical and brake efficiency, power and torque beside the indicated values.
+
+**Suggested model:** Sonnet at high effort, or Opus at medium effort. The feature is small, fully
+specified, and every number to check is given.
+
+**Read:** PHYSICS.md section 13 (and section 11 for the format conventions), SPEC.md section 20,
+the comment above `FRICTION` in `content.js`, and the M8 and M9 notes below.
+
+**Build**
+
+1. `core/friction.js`: `frictionResults(solution, engine)` (PHYSICS 13), with tests that
+   reproduce every case of `reference-friction.json` at 1e-9, including `canRun`.
+2. `core/format.js`: the `power`, `torque` and `rpm` formats, with tests.
+3. `core/values.js`: `texValues(solution, cold, engine)` with the friction names, with tests.
+4. `state/defaults.js`: the engine ranges and defaults (SPEC 20), `state.engine` and
+   `options.friction: false`. Reset restores the engine values.
+5. `core/model.js`: in explore mode `model.friction = options.friction ? { ...state.engine } :
+   null`; always `null` in compare mode. `core/steps.js`: `cardSteps` ends with `"friction"`
+   when `model.friction` is set; `validCard` falls back to `"summary"` if friction is switched
+   off while its card shows. `core/content.js`: a way for the dialogs to get the Model points and
+   Symbols with `FRICTION`'s appended while friction is on. Tests for each.
+6. The page: the switch and three rows in the Parameters panel; the results table, line and
+   note; the three-part energy bar and its legend; the friction step of the process card; the
+   dialogs.
+7. `tests/katex.test.js`: also typeset everything in `FRICTION` with values from the three
+   default cycles and the default engine.
+8. `README.md`: a short item under "What you can do with it".
+
+**Check in the browser** (1366 × 768; the numbers are in PHYSICS 13)
+
+- Friction off: everything as before.
+- Friction on, default Otto: the table reads 599.7 and 449.7 kPa, 56.5 % and 42.3 %, 30.0 and
+  22.5 kW, 95.4 and 71.6 N·m; the line reads *η*<sub>m</sub> 75.0 %, friction power 7.5 kW,
+  heat input 53.1 kW. The energy bar shows *w*<sub>b</sub> 338.8, *w*<sub>f</sub> 113.0,
+  *q*<sub>out</sub> 348.2 and *η*<sub>b</sub> 42.3 %.
+- Speed 6000 rev/min: powers double (60.0 and 45.0 kW), torques do not change. Displacement
+  1.0 L: powers and torques halve (brake 11.2 kW and 35.8 N·m), efficiencies do not change.
+- *q*<sub>in</sub> = 300: *η*<sub>m</sub> 33.3 %, *η*<sub>b</sub> 18.8 %. *q*<sub>in</sub> = 200:
+  the "could not keep itself running" note, and "—" for both efficiencies.
+- Diesel default: 743.8 and 593.8 kPa, *η*<sub>m</sub> 79.8 %, *η*<sub>b</sub> 50.4 %.
+- Variable specific heats with the default Otto: bmep 404.1 kPa, *η*<sub>m</sub> 72.9 %,
+  *η*<sub>b</sub> 38.1 %, brake power 20.2 kW.
+- Guided tour on the default Otto: Next after the summary shows the friction card with
+  bmep = 599.7 − 150 = 449.7 kPa and *Ẇ*<sub>b</sub> = 22.5 kW, typeset, with the units note.
+  Back returns to the summary.
+- The Symbols dialog lists the friction symbols and the Model dialog the friction point, only
+  while friction is on.
+- Compare mode: no friction controls or numbers.
+- Dark theme and 390 × 844: the rows and the table fit; no console errors.
+
+**Commit:** `Add friction: indicated and brake` (locally). Then ask the instructor whether to
+push: a push publishes to students.
+
+---
+
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **Friction setup.** Done by the planning session: PHYSICS.md section 13, SPEC.md section 20,
+  `tests/fixtures/reference-friction.json` (eight cases, cross-checked in Python by two routes
+  for every power and efficiency; the other fixtures unchanged), `FRICTION` in `content.js`
+  (21 math pieces typeset) and its checks in `tests/content.test.js`. `npm test`: 165 tests.
 
 - **M9 (variable specific heats, page).** `npm test`: 163 (the KaTeX test now also typesets
   `contentFor("variable")` with air values). Every item of the list checked at 1366 × 768 with exact numbers;

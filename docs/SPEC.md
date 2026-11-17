@@ -401,3 +401,60 @@ modes. Switching keeps the playhead's slot and τ, like any parameter change.
 
 Everything else (engine, energy panel, strokes, shading, log axes, guided tour, keyboard,
 layouts, themes) works the same in both modes. The new control must fit the phone layout.
+
+## 20. Friction: indicated and brake
+
+An optional layer that turns the ideal cycle's indicated numbers into what an engine of a given
+size and speed delivers at its shaft (PHYSICS.md section 13). It is off by default, and the
+diagrams never change.
+
+**Controls** (Parameters panel, explore mode only). A switch "Include friction"
+(`options.friction`) after the shared parameter rows and the specific-heats lines, before
+Reset. While it is on, three rows appear under it, built like the others (slider and number
+box):
+
+| Parameter | Range | Step | Default |
+|---|---|---|---|
+| Friction MEP fmep (kPa) | 0–400 | 5 | 150 |
+| Displacement *V*<sub>d</sub> (L) | 0.5–6.0 | 0.1 | 2.0 |
+| Engine speed *N* (rev/min) | 600–7000 | 100 | 3000 |
+
+They are stored in `state.engine = { fmep, Vd, N }`, shared by all cycle types and kept while
+friction is off. Reset restores them too.
+
+**Results** (while on). Under the tiles, a compact real `<table>` titled "Indicated and brake":
+
+| | Indicated | Brake |
+|---|---|---|
+| MEP | 599.7 kPa | 449.7 kPa |
+| Efficiency | 56.5 % | 42.3 % |
+| Power | 30.0 kW | 22.5 kW |
+| Torque | 95.4 N·m | 71.6 N·m |
+
+Under it, one muted line: "Mechanical efficiency *η*<sub>m</sub> = 75.0 %. Friction power
+7.5 kW. Heat input 53.1 kW." When the engine cannot run (bmep ≤ 0), the brake column shows its
+values as computed (zero or negative), *η*<sub>m</sub> and the brake efficiency show "—", and a
+muted note says: "Friction is larger than the indicated work: this engine could not keep itself
+running."
+
+**Energy panel** (while on, and the engine can run). The summary bar splits *q*<sub>in</sub>
+into three parts: *w*<sub>b</sub> (secondary ink), *w*<sub>f</sub> (muted ink) and
+*q*<sub>out</sub> (the heat-rejection color, as now). The legend reads
+"*w*<sub>b</sub> 338.8 · *w*<sub>f</sub> 113.0 · *q*<sub>out</sub> 348.2 kJ/kg", and a line
+"*η*<sub>b</sub> = *w*<sub>b</sub>/*q*<sub>in</sub> = 42.3 %" follows the existing
+*η*<sub>th</sub> line. The per-process rows are unchanged: friction belongs to the engine, not
+to a process.
+
+**Process card.** One more step after the summary, "Friction" (card id `"friction"`), from
+`FRICTION.card` in `content.js`: title, `what`, `engine` (labeled "In the engine"), `energy`,
+the equations with numbers, `note` (shown like the strokes note), and `notice`. It has no
+trends row. In the guided tour, Next on the summary goes to this card without playing anything,
+and Back returns to the summary. The step dots include it.
+
+**Symbols and Model dialogs.** While friction is on, `FRICTION.symbols` is appended to the
+Symbols dialog, and `FRICTION.modelPoint` to the Model dialog's points.
+
+**Unchanged:** the diagrams, engine view, timeline, state table, energy rows, efficiency chart
+(it shows the indicated thermal efficiency) and keyboard. Compare mode has no friction controls
+or numbers. Friction works with both gas models (section 19). The new rows and table must fit
+the phone layout.

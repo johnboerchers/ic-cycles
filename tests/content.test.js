@@ -3,7 +3,7 @@
 // processes, and every equation must have both a symbolic and a numeric form.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CONTENT, VARIABLE } from "../site/js/content/content.js";
+import { CONTENT, VARIABLE, FRICTION } from "../site/js/content/content.js";
 
 const VALUE_NAMES = new Set((
   "T1 T2 Tx T3 T4 P1 P2 Px P3 P4 v1 v2 vx v3 v4 r rp rc rexp " +
@@ -12,6 +12,9 @@ const VALUE_NAMES = new Set((
 
 // Extra names that exist only with variable specific heats (VARIABLE in content.js).
 const VARIABLE_NAMES = new Set([...VALUE_NAMES, ..."u1 u2 ux u3 u4 h2 hx h3 etaCold".split(" ")]);
+
+// Extra names that exist only when friction is on (FRICTION in content.js).
+const FRICTION_NAMES = new Set([...VALUE_NAMES, ..."imep fmep bmep etam etab Vd N Wb taub".split(" ")]);
 
 const PROCESS_IDS = {
   otto: ["1-2", "2-3", "3-4", "4-1"],
@@ -120,6 +123,28 @@ test("variable: overrides name existing cards and card fields", () => {
   }
   assert.ok(VARIABLE.model.points.length > 0 && VARIABLE.model.caveats.length > 0);
   for (const sym of VARIABLE.symbols) {
+    for (const key of ["tex", "name", "unit"]) assert.equal(typeof sym[key], "string");
+  }
+});
+
+// ------------------------------------------------------- friction (FRICTION)
+
+test("friction: every \\val{name} refers to a value that exists with friction on", () => {
+  for (const s of strings(FRICTION)) {
+    for (const [, name] of s.matchAll(/\\val\{(\w+)\}/g)) {
+      assert.ok(FRICTION_NAMES.has(name), `unknown \\val{${name}} in: ${s}`);
+    }
+    assert.equal((s.match(/\$/g) || []).length % 2, 0, `odd number of $ in: ${s}`);
+  }
+});
+
+test("friction: the card, model point and symbols are complete", () => {
+  const c = FRICTION.card;
+  for (const key of ["title", "what", "engine", "energy", "note", "notice"]) assert.equal(typeof c[key], "string", key);
+  assert.ok(c.equations.length > 0);
+  checkEquations(FRICTION, "FRICTION");
+  assert.equal(typeof FRICTION.modelPoint, "string");
+  for (const sym of FRICTION.symbols) {
     for (const key of ["tex", "name", "unit"]) assert.equal(typeof sym[key], "string");
   }
 });

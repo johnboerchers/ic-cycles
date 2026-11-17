@@ -5,6 +5,7 @@ Independent reference implementation of the model described in docs/PHYSICS.md.
 Writes the oracles for the JavaScript core in site/js/core:
   tests/fixtures/reference-cycles.json    constant specific heats (cold-air standard)
   tests/fixtures/reference-variable.json  air with temperature-dependent specific heats
+  tests/fixtures/reference-friction.json  friction on top of the ideal cycle (indicated -> brake)
 It is deliberately a separate implementation in another language, so the two check each
 other.
 
@@ -797,6 +798,92 @@ def build_air_fixture():
     print("\nAIR_LOW  =", AIR_LOW, "\nAIR_HIGH =", AIR_HIGH)
 
 
+# --------------------------------------------- friction: indicated -> brake (PHYSICS.md 13)
+
+N_REV = 2  # crank revolutions per cycle: a four-stroke engine
+
+
+def friction_results(sol, fmep, Vd, N):
+    """Brake quantities of a solved cycle. fmep in kPa, Vd = total displacement in L, N in rev/min.
+    kPa * L = J, so works per cycle come out in J and powers in kW after dividing by 1000."""
+    m, st = sol["metrics"], sol["states"]
+    dv = st["1"]["v"] - st["2"]["v"]                 # m^3/kg, swept volume per kg of charge
+    imep = m["mep"]
+    bmep = imep - fmep
+    cycles_per_s = N / (60.0 * N_REV)
+    out = {
+        "imep": imep, "fmep": fmep, "bmep": bmep, "canRun": bmep > 0.0,
+        "etam": bmep / imep, "etab": m["eta"] * bmep / imep,
+        "wf": fmep * dv, "wb": m["wnet"] - fmep * dv,                       # kJ/kg of charge
+        "mdot": (Vd / 1000.0) / dv * cycles_per_s,                         # kg/s
+        "Wi": imep * Vd * cycles_per_s / 1000.0,                           # kW
+        "Wf": fmep * Vd * cycles_per_s / 1000.0,
+        "Wb": bmep * Vd * cycles_per_s / 1000.0,
+        "taui": imep * Vd / (2.0 * math.pi * N_REV),                       # N.m
+        "taub": bmep * Vd / (2.0 * math.pi * N_REV),
+    }
+    out["Qin"] = out["mdot"] * m["qin"]
+    # the same quantities by a second route
+    assert math.isclose(out["Wi"], out["mdot"] * m["wnet"], rel_tol=1e-12)
+    assert math.isclose(out["Wb"], out["mdot"] * out["wb"], rel_tol=1e-9, abs_tol=1e-12)
+    assert math.isclose(out["Wi"], out["Wb"] + out["Wf"], rel_tol=1e-12)
+    assert math.isclose(out["etab"], out["wb"] / m["qin"], rel_tol=1e-9, abs_tol=1e-12)
+    assert math.isclose(out["Wb"], out["taub"] * 2.0 * math.pi * N / 60.0 / 1000.0, rel_tol=1e-12, abs_tol=1e-12)
+    return out
+
+
+FRICTION_CASES = [
+    # name, gas, type, params, P1, T1, engine
+    ("otto-default", "constant", "otto", {"r": 8, "qin": 800}, 100, 300, {"fmep": 150, "Vd": 2.0, "N": 3000}),
+    ("otto-light-load", "constant", "otto", {"r": 8, "qin": 300}, 100, 300, {"fmep": 150, "Vd": 2.0, "N": 3000}),
+    ("otto-idle", "constant", "otto", {"r": 8, "qin": 200}, 100, 300, {"fmep": 150, "Vd": 2.0, "N": 3000}),
+    ("otto-fast-small", "constant", "otto", {"r": 8, "qin": 800}, 100, 300, {"fmep": 250, "Vd": 1.0, "N": 6000}),
+    ("diesel-default", "constant", "diesel", {"r": 18, "rc": 2}, 100, 300, {"fmep": 150, "Vd": 2.0, "N": 3000}),
+    ("dual-frictionless", "constant", "dual", {"r": 16, "rp": 1.5, "rc": 1.5}, 100, 300, {"fmep": 0, "Vd": 2.0, "N": 3000}),
+    ("otto-variable", "variable", "otto", {"r": 8, "qin": 800}, 100, 300, {"fmep": 150, "Vd": 2.0, "N": 3000}),
+    ("diesel-variable-big", "variable", "diesel", {"r": 18, "rc": 2}, 100, 300, {"fmep": 200, "Vd": 6.0, "N": 1800}),
+]
+
+
+def build_friction_fixture():
+    cases = []
+    for name, gas_kind, cycle_type, params, P1, T1, eng in FRICTION_CASES:
+        if gas_kind == "constant":
+            gas = make_gas(1.4)
+            rat = ratios_for(cycle_type, params, T1, gas)
+            sol = solve_cycle(cycle_type, P1, T1, rat["r"], rat["rp"], rat["rc"], gas)
+        else:
+            rat = ratios_for_air(cycle_type, params, T1)
+            sol = solve_cycle_air(cycle_type, P1, T1, rat["r"], rat["rp"], rat["rc"])
+        m, st = sol["metrics"], sol["states"]
+        cases.append({
+            "name": name, "gas": gas_kind, "k": 1.4 if gas_kind == "constant" else None,
+            "type": cycle_type, "params": params, "P1": P1, "T1": T1, "engine": eng,
+            "cycle": {"mep": m["mep"], "wnet": m["wnet"], "qin": m["qin"], "qout": m["qout"],
+                      "eta": m["eta"], "v1": st["1"]["v"], "v2": st["2"]["v"]},
+            "results": friction_results(sol, eng["fmep"], eng["Vd"], eng["N"]),
+        })
+    fixture = {
+        "meta": {
+            "generator": "tools/reference_cycles.py",
+            "model": "friction on top of the ideal cycle (PHYSICS.md section 13)",
+            "units": "kPa; Vd in L; N in rev/min; w in kJ/kg; mdot in kg/s; powers in kW; torque in N.m",
+            "tolerance": "compare with relative tolerance 1e-9 (absolute 1e-9 near zero)",
+        },
+        "revolutionsPerCycle": N_REV,
+        "cases": cases,
+    }
+    out = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "reference-friction.json"
+    out.write_text(json.dumps(fixture, indent=1) + "\n")
+    print(f"\nwrote {out.relative_to(out.parent.parent.parent)}  ({out.stat().st_size / 1024:.1f} kB)\n")
+    print(f"{'friction':20}{'gas':>9}{'imep':>8}{'fmep':>6}{'bmep':>8}{'eta':>7}{'eta_m':>7}{'eta_b':>7}{'wf':>7}{'wb':>7}{'Qin':>7}{'Wi':>7}{'Wf':>6}{'Wb':>7}{'tau_i':>7}{'tau_b':>7} run")
+    for c in cases:
+        r, cy = c["results"], c["cycle"]
+        print(f"{c['name']:20}{c['gas']:>9}{r['imep']:8.1f}{r['fmep']:6.0f}{r['bmep']:8.1f}{100 * cy['eta']:7.2f}"
+              f"{100 * r['etam']:7.2f}{100 * r['etab']:7.2f}{r['wf']:7.1f}{r['wb']:7.1f}{r['Qin']:7.1f}"
+              f"{r['Wi']:7.2f}{r['Wf']:6.2f}{r['Wb']:7.2f}{r['taui']:7.1f}{r['taub']:7.1f} {r['canRun']}")
+
+
 def main():
     sols, cycles = {}, []
     for case in CASES:
@@ -900,6 +987,7 @@ def main():
     print(f"\nxhat(90 deg) = {xhat(math.pi / 2):.6f}   rho = {RHO}")
 
     build_air_fixture()
+    build_friction_fixture()
 
 
 if __name__ == "__main__":

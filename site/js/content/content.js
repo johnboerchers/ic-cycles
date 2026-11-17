@@ -474,3 +474,41 @@ export const VARIABLE = {
     },
   },
 };
+
+// ------------------------------------------------------- friction: indicated -> brake
+//
+// Used when "Include friction" is on (SPEC section 20). Same conventions as CONTENT above.
+//   card        one more process-card step, after the summary (id "friction"). It has no
+//               `trends`; `note` is shown under the equations like CONTENT.strokes.note.
+//   modelPoint  appended to the Model dialog's points.
+//   symbols     appended to the Symbols dialog.
+// Extra \val names, available whenever friction is on: imep fmep bmep (kPa), etam etab
+// (percentages like eta), Vd (L) and N (rev/min) as typed, Wb (kW), taub (N·m).
+
+export const FRICTION = {
+  card: {
+    title: "Friction: indicated and brake",
+    what: t`Everything so far is indicated: the work the gas does on the piston. Before that work reaches the crankshaft, part of it is lost to friction in the piston rings, bearings and valve train, and to driving the oil and water pumps. What is left is the brake work, the work at the output shaft, so called because it is measured with a brake (a dynamometer).`,
+    engine: t`Friction is measured the same way as the cycle's work, as a mean effective pressure. The cycle's MEP is its indicated mean effective pressure, imep. The friction mean effective pressure, fmep, is the steady pressure that would do the friction work in one stroke. Here you set fmep directly; in a real engine it grows with speed.`,
+    energy: t`Brake work = indicated work − friction work. The friction work ends up as heat in the oil and the coolant.`,
+    equations: [
+      { tex: t`\text{bmep} = \text{imep} - \text{fmep}`, num: t`\text{bmep} = \val{imep} - \val{fmep} = \val{bmep}\ \text{kPa}` },
+      { tex: t`\eta_m = \frac{\text{bmep}}{\text{imep}} \qquad \eta_b = \eta_\text{th}\,\eta_m`, num: t`\eta_m = \frac{\val{bmep}}{\val{imep}} = \val{etam} \qquad \eta_b = (\val{eta})(\val{etam}) = \val{etab}` },
+      { tex: t`\dot W_b = \frac{\text{bmep}\;V_d\;N}{120\,000}`, num: t`\dot W_b = \frac{(\val{bmep})(\val{Vd})(\val{N})}{120\,000} = \val{Wb}\ \text{kW}` },
+      { tex: t`\tau_b = \frac{\text{bmep}\;V_d}{4\pi}`, num: t`\tau_b = \frac{(\val{bmep})(\val{Vd})}{4\pi} = \val{taub}\ \text{N}\cdot\text{m}` },
+    ],
+    note: t`Units: bmep in kPa, $V_d$ in liters and $N$ in revolutions per minute; kPa·L is J, which is N·m. The 120 000 is 2 revolutions per cycle (a four-stroke engine) × 60 s/min × 1000 L/m³, and the $4\pi$ is $2\pi$ radians per revolution × 2 revolutions per cycle.`,
+    notice: t`Friction takes about the same bite out of every cycle, so it hurts most at light load, when the indicated work is small. Lower the heat added and watch $\eta_m$ fall. At some point the gas no longer does enough work to overcome friction, which is roughly what idling is.`,
+  },
+
+  modelPoint: t`Friction is added after the cycle, as a friction mean effective pressure. The diagrams, the energy table and every "indicated" number still describe the ideal cycle; only the brake numbers include friction. A four-stroke engine is assumed: one cycle every two revolutions.`,
+
+  symbols: [
+    { tex: t`\text{imep},\ \text{bmep},\ \text{fmep}`, name: "indicated, brake and friction mean effective pressure", unit: "kPa" },
+    { tex: t`\eta_m,\ \eta_b`, name: t`mechanical efficiency $\text{bmep}/\text{imep}$, and brake thermal efficiency $\eta_\text{th}\,\eta_m$`, unit: "" },
+    { tex: t`V_d`, name: "displacement: the volume all the pistons sweep in one stroke", unit: "L" },
+    { tex: t`N`, name: "engine speed", unit: "rev/min" },
+    { tex: t`\dot W_i,\ \dot W_b`, name: "indicated and brake power", unit: "kW" },
+    { tex: t`\tau_b`, name: "brake torque", unit: "N·m" },
+  ],
+};
