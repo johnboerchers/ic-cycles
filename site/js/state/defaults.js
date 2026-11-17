@@ -24,6 +24,15 @@ export const SHARED = {
   k: { min: 1.2, max: 1.67, step: 0.01, value: 1.4 },
 };
 
+// Friction (SPEC section 20, PHYSICS.md section 13): the engine the indicated numbers are turned
+// into brake numbers for. fmep is the friction mean effective pressure, Vd the total displacement
+// and N the engine speed. Shared by all cycle types.
+export const ENGINE = {
+  fmep: { min: 0, max: 400, step: 5, value: 150 },
+  Vd: { min: 0.5, max: 6, step: 0.1, value: 2 },
+  N: { min: 600, max: 7000, step: 100, value: 3000 },
+};
+
 // Compare mode (SPEC section 15): the shared quantities, and the heat split of a dual side
 // (fraction of the heat added at constant volume).
 export const COMPARE = {
@@ -63,6 +72,7 @@ export function defaultState() {
     cycle: "otto",
     specificHeats: "constant", // or "variable": air with temperature-dependent specific heats (SPEC section 19)
     shared: defaultValues(SHARED),
+    engine: defaultValues(ENGINE), // used while options.friction is on; kept while it is off
     params: { otto: defaultValues(PARAMS.otto), diesel: defaultValues(PARAMS.diesel), dual: defaultValues(PARAMS.dual) },
     compare: {
       constraint: "same-r-qin",
@@ -78,6 +88,7 @@ export function defaultState() {
       showNumbers: true,
       focus: false,
       coldCycle: true, // variable specific heats only: also draw the k = 1.4 reference cycle
+      friction: false, // explore mode: show brake MEP, efficiency, power and torque (SPEC section 20)
       theme: "auto",
     },
     playback: { playing: false, speed: 1, slot: "C", tau: 0 },

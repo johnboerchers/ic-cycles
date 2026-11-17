@@ -3,7 +3,8 @@
 //   formatTex(quantity, x, {trim})  for \val{…} in equations: "731.0", "56.5\%"; with trim
 //                             (values the user typed in) trailing zeros go: "300", "800"
 //   formatTicks(values)       axis tick labels with the decimals their step needs
-// Quantities: T, P, v, s, q, w, u, mep, eta, ratio, k, cv, cp.
+// Quantities: T, P, v, s, q, w, u, mep, eta, ratio, k, cv, cp, and for friction (PHYSICS.md
+// section 13) power (kW), torque (N·m) and rpm (rev/min).
 
 export const MINUS = "−";
 export const MISSING = "—";
@@ -34,6 +35,9 @@ const FORMATS = {
   k: (x) => trimZeros(x.toFixed(3)),
   cv: fixed(4),
   cp: fixed(4),
+  power: fixed(1),
+  torque: fixed(1),
+  rpm: (x) => x.toFixed(0),
 };
 
 // Digits with "-" for negatives; a value that rounds to zero loses its sign.

@@ -67,3 +67,16 @@ test("axis tick labels share the decimals their step needs", () => {
   assert.deepEqual(formatTicks([-0.2, 0, 0.2]), [`${MINUS}0.2`, "0", "0.2"]);
   assert.deepEqual(formatTicks([5]), ["5"]);
 });
+
+test("friction formats: power and torque with one decimal, rpm as a whole number", () => {
+  assert.equal(formatValue("power", 22.483724883461118), "22.5");
+  assert.equal(formatValue("power", -0.004068779134723854), "0.0"); // a value that rounds to zero loses its sign
+  assert.equal(formatValue("power", -3.26), `${MINUS}3.3`);
+  assert.equal(formatValue("torque", 71.5679190864217), "71.6");
+  assert.equal(formatValue("rpm", 3000), "3000");
+  assert.equal(formatValue("rpm", 7000), "7000");
+  assert.equal(formatValue("power", NaN), "—");
+  assert.equal(formatTex("power", 22.48), "22.5");
+  assert.equal(formatTex("torque", 71.57), "71.6");
+  assert.equal(formatTex("rpm", 3000), "3000");
+});

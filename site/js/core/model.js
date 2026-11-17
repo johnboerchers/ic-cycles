@@ -95,7 +95,9 @@ export function buildModel(state) {
     entry.cold = { solution: cold, samples: samplesOf(cold) };
   }
   const cycles = [entry];
-  return { mode: "explore", cycles, bounds: axisBounds(cycles, options.coldCycle) };
+  // Friction (PHYSICS.md section 13) only adds numbers beside the cycle: the engine, or null.
+  const friction = options.friction ? { ...state.engine } : null;
+  return { mode: "explore", cycles, bounds: axisBounds(cycles, options.coldCycle), friction };
 }
 
 // ------------------------------------------------------------------------------ compare mode
@@ -126,7 +128,7 @@ export function buildCompareModel(state) {
     const label = `${s.letter}: ${CONTENT.cycles[s.type].name}`;
     return { ...cycleEntry(s.key, label, s.solution, { strokes: false, force }), side: s.letter };
   });
-  return { mode: "compare", cycles, bounds: axisBounds(cycles), compare: { constraint: compare.constraint, sides } };
+  return { mode: "compare", cycles, bounds: axisBounds(cycles), friction: null, compare: { constraint: compare.constraint, sides } };
 }
 
 // States that get a marker and a label on the diagrams: the ends of the processes that are

@@ -4,6 +4,8 @@
 // format so a card agrees with the tables beside it: 731.0, 0.8610, 65.0\%.
 
 import { formatTex } from "./format.js";
+import { frictionResults } from "./friction.js";
+import { ENGINE } from "../state/defaults.js";
 
 // Which format each name uses (the names are listed in the header of content.js).
 const QUANTITY = {
@@ -20,6 +22,16 @@ const QUANTITY = {
 };
 
 export const VALUE_NAMES = Object.keys(QUANTITY);
+
+// The extra names of the friction text (PHYSICS.md section 13), always present: without an
+// engine the defaults are used. fmep and Vd are typed in; N and the rest are not.
+const FRICTION_QUANTITY = {
+  imep: "mep", fmep: "mep", bmep: "mep", etam: "eta", etab: "eta", Vd: "ratio", N: "rpm", Wb: "power", taub: "torque",
+};
+export const FRICTION_VALUE_NAMES = Object.keys(FRICTION_QUANTITY);
+const FRICTION_TYPED = new Set(["fmep", "Vd"]);
+
+const engineDefaults = () => Object.fromEntries(Object.entries(ENGINE).map(([key, d]) => [key, d.value]));
 
 // The values the user types in (PHYSICS.md section 11). The ratios and k are trimmed by their
 // own format anyway; T1, P1 and Otto's qin are the ones this list changes.
@@ -59,13 +71,21 @@ export function rawValues(solution, cold) {
   return out;
 }
 
-// name -> TeX string, ready to replace \val{name}.
-export function texValues(solution, cold) {
+// name -> TeX string, ready to replace \val{name}. `engine` is { fmep, Vd, N } (state.engine);
+// without it the engine defaults are used.
+export function texValues(solution, cold, engine = engineDefaults()) {
   const raw = rawValues(solution, cold);
   const typed = new Set([...TYPED_ALWAYS, ...(TYPED_BY_CYCLE[solution.type] || [])]);
-  return Object.fromEntries(
+  const out = Object.fromEntries(
     VALUE_NAMES.map((name) => [name, formatTex(QUANTITY[name], raw[name], { trim: typed.has(name) })]),
   );
+  const f = frictionResults(solution, engine);
+  // A cycle that cannot run has no mechanical or brake efficiency to show ("—", as on the page).
+  const friction = { ...f, Vd: engine.Vd, N: engine.N, etam: f.canRun ? f.etam : NaN, etab: f.canRun ? f.etab : NaN };
+  for (const name of FRICTION_VALUE_NAMES) {
+    out[name] = formatTex(FRICTION_QUANTITY[name], friction[name], { trim: FRICTION_TYPED.has(name) });
+  }
+  return out;
 }
 
 // Replaces every \val{name} in `tex` by its value. An unknown name is a mistake in content.js.

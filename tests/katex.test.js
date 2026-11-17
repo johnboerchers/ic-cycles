@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import katex from "../site/vendor/katex/katex.mjs";
-import { CONTENT } from "../site/js/content/content.js";
+import { CONTENT, FRICTION } from "../site/js/content/content.js";
 import { texValues, fillValues } from "../site/js/core/values.js";
 import { solveCycleFor, solveColdCycleFor } from "../site/js/core/model.js";
 import { contentFor } from "../site/js/core/content.js";
@@ -79,3 +79,24 @@ for (const [gas, all, values] of TREES) {
     assert.ok(count > 20, `only ${count} inline math pieces found`);
   });
 }
+
+// Friction (FRICTION in content.js): every piece of math, with the default engine and the three
+// default cycles, with both gas models.
+test("katex (friction): every equation and inline piece of FRICTION renders for the default cycles", () => {
+  let count = 0;
+  for (const set of [VALUES, VALUES_AIR]) {
+    for (const [cycle, v] of Object.entries(set)) {
+      for (const { path, key, s } of walk(FRICTION, ["FRICTION"])) {
+        if (key === "tex") render(s, path, true);
+        else if (key === "num") render(fillValues(s, v), `${path} (${cycle})`, true);
+        else {
+          for (const m of inlineMath(s)) {
+            count++;
+            render(fillValues(m, v), `${path} (${cycle})`, false);
+          }
+        }
+      }
+    }
+  }
+  assert.ok(count > 10, `only ${count} inline math pieces found`);
+});

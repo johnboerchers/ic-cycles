@@ -1,6 +1,7 @@
 // The steps of the process card (SPEC section 10): intro (state 1), one per process that is
-// drawn (and the two strokes when they are on), summary. A card id is "intro", "summary" or a
-// process id such as "1-2", "x-3" or "1-0".
+// drawn (and the two strokes when they are on), summary, and with friction on (model.friction,
+// SPEC section 20) one more, "friction", after the summary. A card id is "intro", "summary",
+// "friction" or a process id such as "1-2", "x-3" or "1-0".
 //
 // The card shown is kept in state.card. It follows the playhead: while the playhead is inside a
 // process, that process's card shows; when it stops exactly at a state, the card of the process
@@ -13,7 +14,9 @@ import { timelineSegments } from "./model.js";
 const AT_STATE = 1e-6;
 
 export function cardSteps(model) {
-  return ["intro", ...timelineSegments(model).map((s) => s.processId), "summary"];
+  const steps = ["intro", ...timelineSegments(model).map((s) => s.processId), "summary"];
+  if (model.friction) steps.push("friction");
+  return steps;
 }
 
 // The card the playhead asks for: the process it is inside, or `current` when it sits at a state.
@@ -28,6 +31,7 @@ export function playheadCard(frame, current) {
 export function validCard(model, card, frame) {
   const steps = cardSteps(model);
   if (steps.includes(card)) return card;
+  if (card === "friction") return "summary"; // friction was switched off while its card showed
   const segs = timelineSegments(model);
   if (frame.tau > AT_STATE && steps.includes(frame.processId)) return frame.processId;
   const i = segs.findIndex((s) => s.slot === frame.slot);

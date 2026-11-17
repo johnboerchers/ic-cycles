@@ -23,7 +23,7 @@ the second fixture and the teaching text):
 Friction (the setup is done: PHYSICS.md section 13, SPEC.md section 20, the third fixture and
 the teaching text):
 
-- [ ] M10 Friction: indicated and brake
+- [x] M10 Friction: indicated and brake
 
 ## For the instructor: how to run this
 
@@ -590,6 +590,20 @@ push: a push publishes to students.
 ## Notes between sessions
 
 Newest first. Keep each entry short.
+
+- **M10 (friction).** `npm test`: 185 (new `tests/friction.test.js`: all eight fixture cases at 1e-9, model,
+  steps, dialogs, texValues; the KaTeX test also typesets `FRICTION`); no fixture changed. Every item of the
+  M10 list checked at 1366 × 768 with exact numbers; light, dark and 390 × 844 looked at, no console messages.
+- API: `core/friction.js` `frictionResults(solution, engine)`; `model.friction` (engine or null, always null in
+  compare); `cardSteps` ends with `"friction"`; `dialogContent(content, friction)` in `core/content.js`;
+  `texValues(solution, cold, engine)` adds the friction names (kept out of `VALUE_NAMES` so the earlier test
+  stands; `FRICTION_VALUE_NAMES` lists them), and shows "—" for `etam`/`etab` when the engine cannot run.
+- Readings chosen: in the Parameters panel Reset moved to the end (after the friction rows; it shares the
+  switch's line while friction is off). A cycle that adds no heat shows "—" for the whole indicated/brake
+  table. The legend of the three-part bar follows SPEC 20 literally (no "of q_in" total); the old two-part
+  bar is shown when the engine cannot run. Reset restores the engine values but leaves the switch alone.
+- Gotcha: the plain `python3 -m http.server` lets the browser keep old modules; after editing core files a
+  hard reload (or a fresh tab) is needed before judging console errors.
 
 - **Friction setup.** Done by the planning session: PHYSICS.md section 13, SPEC.md section 20,
   `tests/fixtures/reference-friction.json` (eight cases, cross-checked in Python by two routes

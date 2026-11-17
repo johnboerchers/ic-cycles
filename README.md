@@ -28,6 +28,12 @@ laptops, tablets and phones).
 - **Compare two cycles.** Compare mode puts any two cycles side by side on one timeline, with
   the same compression ratio and heat input, the same peak pressure and heat input, or nothing
   held equal.
+- **Add friction.** "Include friction" turns the indicated numbers of the ideal cycle into what
+  an engine of a given size and speed delivers at its shaft: set the friction mean effective
+  pressure, the displacement and the engine speed, and the results show brake MEP, mechanical
+  and brake efficiency, power and torque next to the indicated values (a four-stroke engine is
+  assumed). The diagrams do not change; the energy bar gains a friction share, and the guided
+  tour a last card. Lower the heat added and watch the engine stop being able to run itself.
 - **Lecture use.** "Focus" (or the F key) hides everything below the transport bar, lets the
   engine and diagrams fill the screen, and makes the text about 25 % larger. The light theme is
   meant for projectors; the moon button switches to the dark theme (by default the page follows

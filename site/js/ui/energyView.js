@@ -2,10 +2,13 @@
 // One row per process (plus the exhaust and intake strokes when they are on) with three bar
 // cells, heat, work and Δu, all on one scale. The current row fills from frame.energy, rows
 // already done this pass are full, rows not yet reached are outlined; at state 1 everything
-// starts again. Under the table: the totals and a bar of q_in split into w_net and q_out.
+// starts again. Under the table: the totals and a bar of q_in split into w_net and q_out. With
+// friction on and an engine that can run (SPEC section 20), the bar has three parts, w_b, w_f and
+// q_out, and an η_b line follows the η_th line; the rows are unchanged.
 
 import { energyTable, energyProgress } from "../core/energy.js";
 import { formatValue } from "../core/format.js";
+import { frictionResults } from "../core/friction.js";
 import { htmlEl, symbolHtml, roleColor } from "./dom.js";
 
 const EPS = 1e-9;
@@ -84,7 +87,10 @@ export function createEnergyView(container) {
     // Zero by the first law; written "0" rather than "0.0" or "−0.0" from rounding.
     second.append(` = ${Math.abs(t.sumDu) < 0.05 ? "0" : formatValue("u", t.sumDu)}`);
 
-    // Summary bar: its length is q_in, split into w_net and q_out; η_th is the first share.
+    // Summary bar: its length is q_in, split into w_net and q_out; η_th is the first share. With
+    // friction, w_net splits further into the brake work w_b and the friction work w_f.
+    const fr = model.friction && heated ? frictionResults(model.cycles[0].solution, model.friction) : null;
+    const split = fr?.canRun ? fr : null;
     const eta = heated ? t.wnet / t.qin : NaN;
     const sum = htmlEl("div", { class: "energy-summary" }, body);
     const cap = htmlEl("div", { class: "energy-eta" }, sum);
@@ -95,26 +101,55 @@ export function createEnergyView(container) {
     symbolHtml(cap, "q", "in");
     cap.append(" = ");
     htmlEl("strong", { text: formatValue("eta", eta) }, cap);
+    if (split) {
+      const capB = htmlEl("div", { class: "energy-eta" }, sum);
+      symbolHtml(capB, "η", "b");
+      capB.append(" = ");
+      symbolHtml(capB, "w", "b");
+      capB.append("/");
+      symbolHtml(capB, "q", "in");
+      capB.append(" = ");
+      htmlEl("strong", { text: formatValue("eta", split.etab) }, capB);
+    }
     const bar = htmlEl("div", { class: "summary-bar", role: "img" }, sum);
     const share = heated ? clamp01(t.wnet / t.qin) : 0;
-    htmlEl("span", { class: "summary-net", style: `flex-grow:${heated ? share : 0}` }, bar);
+    const shareF = split ? clamp01(split.wf / t.qin) : 0;
+    htmlEl("span", { class: "summary-net", style: `flex-grow:${heated ? share - shareF : 0}` }, bar);
+    if (split) htmlEl("span", { class: "summary-fric", style: `flex-grow:${shareF}` }, bar);
     htmlEl("span", { class: "summary-out", style: `flex-grow:${heated ? 1 - share : 0}` }, bar);
-    bar.setAttribute("aria-label", heated
-      ? `Of the heat added, ${formatValue("eta", share)} becomes net work and the rest is rejected.`
-      : "No heat is added.");
+    bar.setAttribute("aria-label", !heated
+      ? "No heat is added."
+      : split
+        ? `Of the heat added, ${formatValue("eta", split.etab)} becomes brake work, ${formatValue("eta", shareF)} is lost to friction and the rest is rejected.`
+        : `Of the heat added, ${formatValue("eta", share)} becomes net work and the rest is rejected.`);
     const legend = htmlEl("div", { class: "summary-legend" }, sum);
     const l1 = htmlEl("span", {}, legend);
     htmlEl("span", { class: "chip summary-net" }, l1);
-    symbolHtml(l1, "w", "net");
-    l1.append(` ${formatValue("w", heated ? t.wnet : NaN)}`);
+    if (split) {
+      symbolHtml(l1, "w", "b");
+      l1.append(` ${formatValue("w", split.wb)}`);
+      legend.append(" · ");
+      const lf = htmlEl("span", {}, legend);
+      htmlEl("span", { class: "chip summary-fric" }, lf);
+      symbolHtml(lf, "w", "f");
+      lf.append(` ${formatValue("w", split.wf)}`);
+      legend.append(" · ");
+    } else {
+      symbolHtml(l1, "w", "net");
+      l1.append(` ${formatValue("w", heated ? t.wnet : NaN)}`);
+    }
     const l2 = htmlEl("span", {}, legend);
     htmlEl("span", { class: "chip summary-out" }, l2);
     symbolHtml(l2, "q", "out");
     l2.append(` ${formatValue("q", heated ? t.qout : NaN)}`);
-    const l3 = htmlEl("span", { class: "summary-total" }, legend);
-    l3.append("of ");
-    symbolHtml(l3, "q", "in");
-    l3.append(` ${formatValue("q", heated ? t.qin : NaN)} kJ/kg`);
+    if (split) {
+      l2.append(" kJ/kg");
+    } else {
+      const l3 = htmlEl("span", { class: "summary-total" }, legend);
+      l3.append("of ");
+      symbolHtml(l3, "q", "in");
+      l3.append(` ${formatValue("q", heated ? t.qin : NaN)} kJ/kg`);
+    }
 
     shown = rows.map(() => ({}));
   }

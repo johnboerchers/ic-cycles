@@ -3,7 +3,7 @@
 // tick(frames, state) on every animation frame and every scrub.
 
 import { createStore } from "./state/store.js";
-import { defaultState, defaultValues, CYCLES, TIMING, PARAMS, SHARED } from "./state/defaults.js";
+import { defaultState, defaultValues, CYCLES, TIMING, PARAMS, SHARED, ENGINE } from "./state/defaults.js";
 import {
   buildModel, phaseOf, framesAt, nextBoundary, previousStart, advancePhase,
 } from "./core/model.js";
@@ -127,10 +127,19 @@ const actions = {
     const own = st.params[st.cycle];
     if (own[key] !== value) store.set({ params: { ...st.params, [st.cycle]: { ...own, [key]: value } } });
   },
-  // Reset restores every value in the panel: the current cycle's parameters and T1, P1, k.
+  // A friction engine value: fmep, Vd or N (SPEC section 20). Shared by all cycles.
+  setEngine(key, value) {
+    const { engine } = store.get();
+    if (engine[key] !== value) store.set({ engine: { ...engine, [key]: value } });
+  },
+  // Reset restores every value in the panel: the current cycle's parameters, T1, P1, k and the engine.
   resetParams() {
     const st = store.get();
-    store.set({ shared: defaultValues(SHARED), params: { ...st.params, [st.cycle]: defaultValues(PARAMS[st.cycle]) } });
+    store.set({
+      shared: defaultValues(SHARED),
+      engine: defaultValues(ENGINE),
+      params: { ...st.params, [st.cycle]: defaultValues(PARAMS[st.cycle]) },
+    });
   },
   setOption(key, value) {
     store.merge("options", { [key]: value });
@@ -162,12 +171,17 @@ const actions = {
     });
   },
   // Next plays the next process and stops at its end. Once the last process has finished
-  // (the playhead is back at state 1), Next shows the summary.
+  // (the playhead is back at state 1), Next shows the summary; with friction on, one more Next
+  // shows the friction card, without playing anything.
   cardNext() {
     const { card, playback } = store.get();
     const steps = cardSteps(model);
-    if (card === "summary") return;
-    const last = steps[steps.length - 2];
+    if (card === "friction") return;
+    if (card === "summary") {
+      if (steps.includes("friction")) showCard("friction");
+      return;
+    }
+    const last = steps[steps.indexOf("summary") - 1];
     if (card === last && !playback.playing && phase === 0) store.set({ card: "summary" });
     else actions.next();
   },
@@ -225,6 +239,8 @@ function modelInputsChanged(state, prev) {
     state.cycle !== prev.cycle ||
     state.specificHeats !== prev.specificHeats ||
     state.shared !== prev.shared ||
+    state.engine !== prev.engine ||
+    state.options.friction !== prev.options.friction ||
     state.params !== prev.params ||
     state.compare !== prev.compare ||
     state.options.strokes !== prev.options.strokes ||

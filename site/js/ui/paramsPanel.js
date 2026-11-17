@@ -6,10 +6,13 @@
 // the way back); in their place a read-only line gives k = cp/cv at the state point's
 // temperature, written in tick(), and under it the "Show the cold-air cycle" switch.
 //
+// Friction (SPEC section 20): after the shared rows and the specific-heats lines, a switch
+// "Include friction"; while it is on, three more rows (fmep, V_d, N) from state.engine, then Reset.
+//
 // render() rebuilds the rows only when the cycle changes. Otherwise it only writes values, so a
 // slider being dragged or a box being typed in keeps its focus.
 
-import { PARAMS, SHARED, K_CHIPS } from "../state/defaults.js";
+import { PARAMS, SHARED, ENGINE, K_CHIPS } from "../state/defaults.js";
 import { parseNumber, inRange, clampTo } from "../core/params.js";
 import { formatValue } from "../core/format.js";
 import { htmlEl, symbolHtml, noMouseFocus, makeSwitch } from "./dom.js";
@@ -23,6 +26,10 @@ export const LABELS = {
   T1: ["Inlet temperature", "T", "1", "K"],
   P1: ["Inlet pressure", "P", "1", "kPa"],
   k: ["Specific heat ratio", "k"],
+  // Friction (the fifth item says the symbol is an abbreviation, set upright).
+  fmep: ["Friction MEP", "fmep", null, "kPa", true],
+  Vd: ["Displacement", "V", "d", "L"],
+  N: ["Engine speed", "N", null, "rev/min"],
 };
 
 // Values in the boxes read as typed: "8", "1.667", "800".
@@ -56,6 +63,8 @@ export function createParamsPanel(container, actions) {
   let chipLabel = null;
   let kLine = null; // { el, value, shown }
   let coldBox = null;
+  let fricBox = null;
+  let engineRows = null; // { el, rows }
   let gas = null; // the gas of the cycle on screen, for the k line
   let variable = false;
 
@@ -91,7 +100,25 @@ export function createParamsPanel(container, actions) {
       b.addEventListener("click", () => actions.setParam("shared", "k", k));
       chips.push({ b, k });
     }
-    const reset = noMouseFocus(htmlEl("button", { type: "button", class: "text-btn", text: "Reset" }, chipRow));
+    // Friction: the switch, its three rows while it is on, and Reset at the end. Reset shares
+    // the switch's line while the rows are hidden.
+    const fric = htmlEl("div", { class: "params-foot friction-foot" }, body);
+    fricBox = makeSwitch(fric, "Include friction", (on) => actions.setOption("friction", on), "small");
+    const engineEl = htmlEl("div", { class: "engine-rows", hidden: "" }, fric);
+    engineRows = {
+      el: engineEl,
+      rows: Object.keys(ENGINE).map((key) => {
+        const r = sliderRow(engineEl, {
+          id: `param-${key}`,
+          label: LABELS[key],
+          spec: ENGINE[key],
+          onValue: (x) => actions.setEngine(key, x),
+          current: () => lastState.engine[key],
+        });
+        return { key, ...r };
+      }),
+    };
+    const reset = noMouseFocus(htmlEl("button", { type: "button", class: "text-btn", text: "Reset" }, fric));
     reset.title = "Restore the default values";
     reset.addEventListener("click", actions.resetParams);
   }
@@ -128,6 +155,9 @@ export function createParamsPanel(container, actions) {
     kLine.el.hidden = !variable;
     kLine.cold.hidden = !variable;
     coldBox.checked = state.options.coldCycle;
+    fricBox.checked = state.options.friction;
+    engineRows.el.hidden = !state.options.friction;
+    for (const r of engineRows.rows) r.show(state.engine[r.key]);
   }
 
   // The k line follows the state point: k of air at the gas temperature now.
@@ -149,11 +179,12 @@ export function createParamsPanel(container, actions) {
 // the range. Returns { slider, num, show(x) }; show writes a value without disturbing a box
 // that is being typed in.
 export function sliderRow(parent, { id, label, spec, onValue, current }) {
-  const [words, symbol, sub, unitText] = label;
+  const [words, symbol, sub, unitText, plain] = label;
   const el = htmlEl("div", { class: "param" }, parent);
   const lab = htmlEl("label", { for: id }, el);
   lab.append(`${words} `);
-  if (symbol) symbolHtml(lab, symbol, sub);
+  if (symbol && plain) lab.append(symbol);
+  else if (symbol) symbolHtml(lab, symbol, sub);
   if (unitText) htmlEl("span", { class: "unit", text: ` (${unitText})` }, lab);
   const slider = htmlEl("input", { type: "range", min: spec.min, max: spec.max, step: spec.step }, el);
   slider.setAttribute("aria-label", `${words} slider`);

@@ -6,8 +6,9 @@
 //   cycles.<type>.intro, .summary and .processes[id]: each field given in VARIABLE replaces the
 //             field of the same name in that CONTENT card; fields not given keep the CONTENT text.
 // Everything else (strokes, roles, compare, the cycle names and so on) is CONTENT's own.
+// dialogContent adds FRICTION's Model point and symbols while friction is on.
 
-import { CONTENT, VARIABLE } from "../content/content.js";
+import { CONTENT, VARIABLE, FRICTION } from "../content/content.js";
 
 function mergeCycle(base, over) {
   if (!over) return base;
@@ -44,4 +45,14 @@ export function contentFor(specificHeats) {
   if (specificHeats !== "variable") return CONTENT;
   if (!variable) variable = merge();
   return variable;
+}
+
+// What the dialogs list: the Model points and the Symbols of `content` (from contentFor), with
+// FRICTION's modelPoint and symbols appended while friction is on (SPEC section 20).
+export function dialogContent(content, friction) {
+  if (!friction) return { points: content.model.points, symbols: content.symbols };
+  return {
+    points: [...content.model.points, FRICTION.modelPoint],
+    symbols: [...content.symbols, ...FRICTION.symbols],
+  };
 }

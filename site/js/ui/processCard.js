@@ -1,11 +1,13 @@
 // Process card (SPEC section 10): one step of the cycle at a time, with the wording and the
 // equations from content/content.js (with variable specific heats, the merged text of
-// core/content.js, contentFor). Steps: intro (state 1), one per process, summary.
+// core/content.js, contentFor). Steps: intro (state 1), one per process, summary, and with friction
+// on the friction card (FRICTION.card in content.js, SPEC section 20).
 // The card shown is state.card; main.js keeps it in step with the playhead (core/steps.js).
 // render() rebuilds the card body (new card, new parameters, numbers on or off); tick() does
 // nothing, because the card only changes through the store.
 
 import { contentFor } from "../core/content.js";
+import { FRICTION } from "../content/content.js";
 import { timelineSegments, framesAt, phaseOf } from "../core/model.js";
 import { cardSteps, validCard } from "../core/steps.js";
 import { texValues, fillValues } from "../core/values.js";
@@ -88,7 +90,7 @@ export function createProcessCard(container, actions) {
     const index = steps.indexOf(card);
     const roles = Object.fromEntries(timelineSegments(model).map((s) => [s.processId, s.role]));
     // With variable specific heats, \val{etaCold} comes from the cold-air cycle.
-    const values = texValues(model.cycles[0].solution, model.cycles[0].cold?.solution);
+    const values = texValues(model.cycles[0].solution, model.cycles[0].cold?.solution, model.friction ?? undefined);
 
     container.classList.toggle("hide-numbers", !state.options.showNumbers);
     numbers.checked = state.options.showNumbers;
@@ -98,7 +100,10 @@ export function createProcessCard(container, actions) {
     steps.forEach((id, i) => {
       const li = htmlEl("li", {}, dots);
       const name =
-        id === "intro" ? "State 1" : id === "summary" ? "Summary" : `${arrowLabel(id)} ${processContent(content, cycle, id).title}`;
+        id === "intro" ? "State 1"
+        : id === "summary" ? "Summary"
+        : id === "friction" ? "Friction"
+        : `${arrowLabel(id)} ${processContent(content, cycle, id).title}`;
       const b = noMouseFocus(htmlEl("button", { type: "button", class: "dot", title: name, "aria-label": name }, li));
       if (roles[id]) b.style.setProperty("--dot", roleColor(roles[id]));
       if (i === index) b.setAttribute("aria-current", "step");
@@ -112,6 +117,15 @@ export function createProcessCard(container, actions) {
       prose(body, "card-text", c.text, values);
       equations(body, c.equations, values);
       if (c.notice) prose(body, "card-notice", c.notice, values, "Notice");
+    } else if (card === "friction") {
+      const c = FRICTION.card;
+      title(body, c.title);
+      prose(body, "card-text", c.what, values);
+      prose(body, "card-text", c.engine, values, "In the engine");
+      prose(body, "card-text", c.energy, values);
+      equations(body, c.equations, values);
+      prose(body, "card-note", c.note, values);
+      prose(body, "card-notice", c.notice, values, "Notice");
     } else {
       const c = processContent(content, cycle, card);
       title(body, c.title, { role: roles[card], states: arrowLabel(card) });
@@ -126,7 +140,7 @@ export function createProcessCard(container, actions) {
 
     back.disabled = index <= 0;
     next.disabled = index >= steps.length - 1;
-    replay.disabled = card === "intro" || card === "summary";
+    replay.disabled = card === "intro" || card === "summary" || card === "friction";
   }
 
   return { render, tick() {} };
