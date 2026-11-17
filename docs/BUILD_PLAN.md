@@ -527,8 +527,8 @@ Newest first. Keep each entry short.
   because the dashed line passes right behind labels 3 and x.
 - Fix beyond the spec: efficiency marker values now avoid the right-end curve labels. At r = 26 the value sat
   on a label in both modes (constant Diesel rc = 4: "61.4 %" over "rc = 2"); default views are unchanged.
-- Open question for the instructor: the page footer still says "cold-air-standard cycles … constant specific
-  heats" in variable mode. SPEC 19 says nothing about it, so it was left as is.
+- Footer reworded at the instructor's request to cover both models ("Ideal air-standard cycles … with
+  constant specific heats (the cold-air standard) or specific heats that vary with temperature").
 
 - **M8 (variable specific heats, core).** `npm test`: 160 tests, constant fixture and every earlier
   expectation untouched; the variable fixture reproduced at 1e-9 (`tests/variable.test.js`). The page
